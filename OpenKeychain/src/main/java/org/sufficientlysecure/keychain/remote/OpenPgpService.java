@@ -93,12 +93,15 @@ public class OpenPgpService extends Service {
 
     public static final List<Integer> SUPPORTED_VERSIONS =
             Collections.unmodifiableList(Arrays.asList(3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+    public static final int NO_KEY = -1;
+
 
     private ApiPermissionHelper mApiPermissionHelper;
     private KeyRepository mKeyRepository;
     private ApiDataAccessObject mApiDao;
     private OpenPgpServiceKeyIdExtractor mKeyIdExtractor;
     private ApiPendingIntentFactory mApiPendingIntentFactory;
+
 
     @Override
     public void onCreate() {
@@ -797,7 +800,40 @@ public class OpenPgpService extends Service {
         if (permissionIntent != null) {
             return permissionIntent;
         }
+
         Intent result = new Intent();
+
+        long keyId = data.getLongExtra(OpenPgpApi.EXTRA_KEY_ID, NO_KEY);
+        if (keyId != NO_KEY) {
+            String currentPkg = mApiPermissionHelper.getCurrentCallingPackage();
+            HashSet<Long> allowedKeyIds = mApiDao.getAllowedKeyIdsForApp(
+                    KeychainContract.ApiAllowedKeys.buildBaseUri(currentPkg));
+
+            if (!allowedKeyIds.contains(keyId)) {
+                ApiPendingIntentFactory piFactory = new ApiPendingIntentFactory(getBaseContext());
+                PendingIntent pi = piFactory.createRequestKeyPermissionPendingIntent(
+                        data, currentPkg, new long[] { keyId });
+
+                result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+                result.putExtra(OpenPgpApi.RESULT_INTENT, pi);
+                result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.KEY_NO_ACCESS,
+                        "Key does not exist or access denied."));
+                return result;
+            }
+
+            try {
+                String userId = mProviderHelper.getCachedPublicKeyRing(keyId).getPrimaryUserId();
+                result.putExtra(OpenPgpApi.RESULT_USER_ID, userId);
+            } catch (PgpKeyNotFoundException e) {
+                result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+                result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.KEY_NO_ACCESS,
+                        "Key does not exist or access denied."));
+                return result;
+            }
+
+            // TODO more checks if key is fit for use
+        }
+
         result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_SUCCESS);
         return result;
     }
