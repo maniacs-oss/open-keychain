@@ -60,6 +60,7 @@ import org.sufficientlysecure.keychain.compatibility.DialogFragmentWorkaround;
 import org.sufficientlysecure.keychain.operations.results.OperationResult;
 import org.sufficientlysecure.keychain.provider.KeychainContract;
 import org.sufficientlysecure.keychain.ui.adapter.LinkedIdsAdapter;
+import org.sufficientlysecure.keychain.ui.adapter.TrustIdsAdapter;
 import org.sufficientlysecure.keychain.ui.adapter.UserIdsAdapter;
 import org.sufficientlysecure.keychain.ui.base.LoaderFragment;
 import org.sufficientlysecure.keychain.ui.dialog.UserIdInfoDialogFragment;
@@ -76,8 +77,6 @@ public class ViewKeyFragment extends LoaderFragment implements
     public static final String ARG_DATA_URI = "uri";
     public static final String ARG_POSTPONE_TYPE = "postpone_type";
 
-    private ListView mUserIds;
-
     enum PostponeType {
         NONE, LINKED
     }
@@ -86,8 +85,9 @@ public class ViewKeyFragment extends LoaderFragment implements
 
     private static final int LOADER_ID_UNIFIED = 0;
     private static final int LOADER_ID_USER_IDS = 1;
-    private static final int LOADER_ID_LINKED_IDS = 2;
-    private static final int LOADER_ID_LINKED_CONTACT = 3;
+    private static final int LOADER_ID_TRUST_IDS = 2;
+    private static final int LOADER_ID_LINKED_IDS = 3;
+    private static final int LOADER_ID_LINKED_CONTACT = 4;
 
     private static final String LOADER_EXTRA_LINKED_CONTACT_MASTER_KEY_ID
             = "loader_linked_contact_master_key_id";
@@ -95,10 +95,16 @@ public class ViewKeyFragment extends LoaderFragment implements
             = "loader_linked_contact_is_secret";
 
     private UserIdsAdapter mUserIdsAdapter;
+    private TrustIdsAdapter mTrustIdsAdapter;
     private LinkedIdsAdapter mLinkedIdsAdapter;
 
     private Uri mDataUri;
     private PostponeType mPostponeType;
+
+    private ListView mUserIds;
+
+    private ListView mTrustIds;
+    private CardView mTrustIdsCard;
 
     private CardView mSystemContactCard;
     private LinearLayout mSystemContactLayout;
@@ -132,6 +138,8 @@ public class ViewKeyFragment extends LoaderFragment implements
 
         mUserIds = (ListView) view.findViewById(R.id.view_key_user_ids);
         Button userIdsEditButton = (Button) view.findViewById(R.id.view_key_card_user_ids_edit);
+        mTrustIdsCard = (CardView) view.findViewById(R.id.view_key_card_trust_ids);
+        mTrustIds = (ListView) view.findViewById(R.id.view_key_trust_ids);
         mLinkedIdsCard = (CardView) view.findViewById(R.id.card_linked_ids);
         mLinkedIds = (ListView) view.findViewById(R.id.view_key_linked_ids);
         mLinkedIdsExpander = (TextView) view.findViewById(R.id.view_key_linked_ids_expander);
@@ -393,6 +401,10 @@ public class ViewKeyFragment extends LoaderFragment implements
                 return UserIdsAdapter.createLoader(getActivity(), mDataUri);
             }
 
+            case LOADER_ID_TRUST_IDS: {
+                return TrustIdsAdapter.createLoader(getActivity(), mDataUri);
+            }
+
             case LOADER_ID_LINKED_IDS: {
                 return LinkedIdsAdapter.createLoader(getActivity(), mDataUri);
             }
@@ -448,6 +460,7 @@ public class ViewKeyFragment extends LoaderFragment implements
 
                     // init other things after we know if it's a secret key
                     initUserIds(mIsSecret);
+                    initTrustIds(mIsSecret);
                     initLinkedIds(mIsSecret);
                     initLinkedContactLoader(masterKeyId, mIsSecret);
                     initCardButtonsVisibility(mIsSecret);
@@ -458,6 +471,13 @@ public class ViewKeyFragment extends LoaderFragment implements
             case LOADER_ID_USER_IDS: {
                 setContentShown(true, false);
                 mUserIdsAdapter.swapCursor(data);
+
+                break;
+            }
+
+            case LOADER_ID_TRUST_IDS: {
+                mTrustIdsAdapter.swapCursor(data);
+                mTrustIdsCard.setVisibility(mTrustIdsAdapter.getCount() > 0 ? View.VISIBLE : View.GONE);
 
                 break;
             }
@@ -501,6 +521,12 @@ public class ViewKeyFragment extends LoaderFragment implements
         mUserIdsAdapter = new UserIdsAdapter(getActivity(), null, 0, !isSecret, null);
         mUserIds.setAdapter(mUserIdsAdapter);
         getLoaderManager().initLoader(LOADER_ID_USER_IDS, null, this);
+    }
+
+    private void initTrustIds(boolean isSecret) {
+        mTrustIdsAdapter = new TrustIdsAdapter(getActivity(), null, 0);
+        mTrustIds.setAdapter(mTrustIdsAdapter);
+        getLoaderManager().initLoader(LOADER_ID_TRUST_IDS, null, this);
     }
 
     private void initLinkedIds(boolean isSecret) {
@@ -551,6 +577,10 @@ public class ViewKeyFragment extends LoaderFragment implements
         switch (loader.getId()) {
             case LOADER_ID_USER_IDS: {
                 mUserIdsAdapter.swapCursor(null);
+                break;
+            }
+            case LOADER_ID_TRUST_IDS: {
+                mTrustIdsAdapter.swapCursor(null);
                 break;
             }
             case LOADER_ID_LINKED_IDS: {
