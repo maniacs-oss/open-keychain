@@ -36,6 +36,7 @@ import org.sufficientlysecure.keychain.pgp.WrappedUserAttribute;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAccounts;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAllowedKeys;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiApps;
+import org.sufficientlysecure.keychain.provider.KeychainContract.ApiTrustIdentity;
 import org.sufficientlysecure.keychain.provider.KeychainContract.Certs;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRingData;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
@@ -46,6 +47,7 @@ import org.sufficientlysecure.keychain.provider.KeychainContract.UserPacketsColu
 import org.sufficientlysecure.keychain.provider.KeychainDatabase.Tables;
 import org.sufficientlysecure.keychain.util.Log;
 
+import java.security.AccessControlException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -962,6 +964,27 @@ public class KeychainProvider extends ContentProvider {
                 case API_ACCOUNTS_BY_ACCOUNT_NAME: {
                     count = db.update(Tables.API_ACCOUNTS, values,
                             buildDefaultApiAccountsSelection(uri, selection), selectionArgs);
+                    break;
+                }
+                case TRUST_IDS_BY_PACKAGE_NAME_AND_TRUST_ID: {
+                    Long masterKeyId = values.getAsLong(ApiTrustIdentity.MASTER_KEY_ID);
+                    long updateTime = values.getAsLong(KeychainContract.ApiTrustIdentity.LAST_UPDATED);
+                    if (masterKeyId == null) {
+                        throw new IllegalArgumentException("master_key_id must be a non-null value!");
+                    }
+
+                    ContentValues actualValues = new ContentValues();
+                    String packageName = uri.getPathSegments().get(2);
+                    actualValues.put(ApiTrustIdentity.PACKAGE_NAME, packageName);
+                    actualValues.put(ApiTrustIdentity.TRUST_ID, uri.getLastPathSegment());
+                    actualValues.put(ApiTrustIdentity.MASTER_KEY_ID, masterKeyId);
+                    actualValues.put(ApiTrustIdentity.LAST_UPDATED, updateTime);
+
+                    try {
+                        db.replace(Tables.API_TRUST_IDENTITIES, null, actualValues);
+                    } finally {
+                        db.close();
+                    }
                     break;
                 }
                 default: {

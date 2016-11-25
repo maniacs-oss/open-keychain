@@ -25,6 +25,7 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+
 public class PgpDecryptVerifyInputParcel implements Parcelable {
 
     private Uri mInputUri;
@@ -37,6 +38,7 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
     private byte[] mDetachedSignature;
     private String mRequiredSignerFingerprint;
     private String mSenderAddress;
+    private String mTrustId;
 
     public PgpDecryptVerifyInputParcel() {
     }
@@ -50,7 +52,7 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
         mInputBytes = inputBytes;
     }
 
-    PgpDecryptVerifyInputParcel(Parcel source) {
+    private PgpDecryptVerifyInputParcel(Parcel source) {
         // we do all of those here, so the PgpSignEncryptInput class doesn't have to be parcelable
         mInputUri = source.readParcelable(getClass().getClassLoader());
         mOutputUri = source.readParcelable(getClass().getClassLoader());
@@ -61,6 +63,7 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
         mDecryptMetadataOnly = source.readInt() != 0;
         mDetachedSignature = source.createByteArray();
         mRequiredSignerFingerprint = source.readString();
+        mTrustId = source.readString();
     }
 
     @Override
@@ -79,6 +82,7 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
         dest.writeInt(mDecryptMetadataOnly ? 1 : 0);
         dest.writeByteArray(mDetachedSignature);
         dest.writeString(mRequiredSignerFingerprint);
+        dest.writeString(mTrustId);
     }
 
     byte[] getInputBytes() {
