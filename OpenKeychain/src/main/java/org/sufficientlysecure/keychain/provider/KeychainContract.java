@@ -99,6 +99,13 @@ public class KeychainContract {
         String PACKAGE_NAME = "package_name"; // foreign key to api_apps.package_name
     }
 
+    interface ApiTrustIdentityColumns {
+        String PACKAGE_NAME = "package_name";
+        String TRUST_ID = "trust_id";
+        String LAST_UPDATED = "last_updated";
+        String MASTER_KEY_ID = "master_key_id";
+    }
+
     public static final String CONTENT_AUTHORITY = Constants.PROVIDER_AUTHORITY;
 
     private static final Uri BASE_CONTENT_URI_INTERNAL = Uri
