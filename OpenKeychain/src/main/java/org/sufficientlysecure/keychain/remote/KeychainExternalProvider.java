@@ -19,6 +19,7 @@ package org.sufficientlysecure.keychain.remote;
 
 import java.security.AccessControlException;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -44,12 +45,14 @@ import org.sufficientlysecure.keychain.provider.KeychainContract.UserPackets;
 import org.sufficientlysecure.keychain.provider.KeychainDatabase;
 import org.sufficientlysecure.keychain.provider.KeychainDatabase.Tables;
 import org.sufficientlysecure.keychain.provider.KeychainExternalContract;
+import org.sufficientlysecure.keychain.provider.KeychainExternalContract.ApiTrustIdentity;
 import org.sufficientlysecure.keychain.provider.KeychainExternalContract.EmailStatus;
 import org.sufficientlysecure.keychain.provider.SimpleContentResolverInterface;
 import org.sufficientlysecure.keychain.util.Log;
 
 public class KeychainExternalProvider extends ContentProvider implements SimpleContentResolverInterface {
     private static final int EMAIL_STATUS = 101;
+    private static final int TRUST_IDENTITY = 201;
     private static final int API_APPS = 301;
     private static final int API_APPS_BY_PACKAGE_NAME = 302;
 
@@ -79,7 +82,9 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
          */
         matcher.addURI(authority, KeychainExternalContract.BASE_EMAIL_STATUS, EMAIL_STATUS);
 
-        matcher.addURI(KeychainContract.CONTENT_AUTHORITY, KeychainContract.BASE_API_APPS, API_APPS);
+        matcher.addURI(authority, KeychainExternalContract.BASE_TRUST_IDENTITIES + "/*", TRUST_IDENTITY);
+
+        // can only query status of calling app - for internal use only!
         matcher.addURI(KeychainContract.CONTENT_AUTHORITY, KeychainContract.BASE_API_APPS + "/*", API_APPS_BY_PACKAGE_NAME);
 
         return matcher;
@@ -155,11 +160,14 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 // we take the minimum (>0) here, where "1" is "verified by known secret key", "2" is "self-certified"
                 projectionMap.put(EmailStatus.EMAIL_STATUS, "CASE ( MIN (" + Certs.VERIFIED + " ) ) "
                         // remap to keep this provider contract independent from our internal representation
-                        + " WHEN NULL THEN 1"
                         + " WHEN " + Certs.VERIFIED_SELF + " THEN 1"
                         + " WHEN " + Certs.VERIFIED_SECRET + " THEN 2"
+                        + " WHEN NULL THEN NULL"
                         + " END AS " + EmailStatus.EMAIL_STATUS);
-                projectionMap.put(EmailStatus.USER_ID, Tables.USER_PACKETS + "." + UserPackets.USER_ID + " AS " + EmailStatus.USER_ID);
+                projectionMap.put(EmailStatus.USER_ID,
+                        Tables.USER_PACKETS + "." + UserPackets.USER_ID + " AS " + EmailStatus.USER_ID);
+                projectionMap.put(EmailStatus.TRUST_ID_LAST_UPDATE, Tables.API_TRUST_IDENTITIES + "." +
+                        ApiTrustIdentity.LAST_UPDATED + " AS " + EmailStatus.TRUST_ID_LAST_UPDATE);
                 qb.setProjectionMap(projectionMap);
 
                 if (projection == null) {
@@ -172,13 +180,17 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                                 + Tables.USER_PACKETS + "." + UserPackets.USER_ID + " IS NOT NULL"
                                 + " AND " + Tables.USER_PACKETS + "." + UserPackets.EMAIL + " LIKE " + TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES
                                 + ")"
+                                + " LEFT JOIN " + Tables.API_TRUST_IDENTITIES + " ON ("
+                                + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.TRUST_ID + " LIKE queried_addresses.address"
+                                + ")"
                                 + " LEFT JOIN " + Tables.CERTS + " ON ("
-                                + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
-                                + " AND " + Tables.USER_PACKETS + "." + UserPackets.RANK + " = " + Tables.CERTS + "." + Certs.RANK
+                                + "(" + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
+                                + " AND " + Tables.USER_PACKETS + "." + UserPackets.RANK + " = " + Tables.CERTS + "." + Certs.RANK + ")"
                                 + ")"
                 );
                 // in case there are multiple verifying certificates
-                groupBy = TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES;
+                groupBy = TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES
+                        + ", " + Tables.CERTS + "." + UserPackets.MASTER_KEY_ID;
                 List<String> plist = Arrays.asList(projection);
                 if (plist.contains(EmailStatus.USER_ID)) {
                     groupBy += ", " + Tables.USER_PACKETS + "." + UserPackets.USER_ID;
@@ -188,12 +200,43 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 // verified == null is fine, because it means there was no join partner
                 qb.appendWhere(Tables.CERTS + "." + Certs.VERIFIED + " IS NULL OR " + Tables.CERTS + "." + Certs.VERIFIED + " > 0");
 
+                String callingPackageName = mApiPermissionHelper.getCurrentCallingPackage();
+                qb.appendWhere(" AND " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME + " = \"" + callingPackageName + "\"");
+
                 if (TextUtils.isEmpty(sortOrder)) {
                     sortOrder = EmailStatus.EMAIL_ADDRESS;
                 }
 
                 // uri to watch is all /key_rings/
                 uri = KeyRings.CONTENT_URI;
+                break;
+            }
+
+            case TRUST_IDENTITY: {
+                boolean callerIsAllowed = mApiPermissionHelper.isAllowedIgnoreErrors();
+                if (!callerIsAllowed) {
+                    throw new AccessControlException("An application must register before use of KeychainExternalProvider!");
+                }
+
+                if (projection == null) {
+                    throw new IllegalArgumentException("Please provide a projection!");
+                }
+
+                HashMap<String, String> projectionMap = new HashMap<>();
+                projectionMap.put(ApiTrustIdentity._ID, "oid AS " + ApiTrustIdentity._ID);
+                projectionMap.put(ApiTrustIdentity.TRUST_ID, ApiTrustIdentity.TRUST_ID);
+                projectionMap.put(ApiTrustIdentity.MASTER_KEY_ID, ApiTrustIdentity.MASTER_KEY_ID);
+                projectionMap.put(ApiTrustIdentity.LAST_UPDATED, ApiTrustIdentity.LAST_UPDATED);
+                qb.setProjectionMap(projectionMap);
+
+                qb.setTables(Tables.API_TRUST_IDENTITIES);
+
+                // allow access to columns of the calling package exclusively!
+                qb.appendWhere(Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME +
+                        " = " + mApiPermissionHelper.getCurrentCallingPackage());
+
+                qb.appendWhere(Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.TRUST_ID + " = ");
+                qb.appendWhereEscapeString(uri.getLastPathSegment());
 
                 break;
             }
@@ -256,12 +299,64 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
 
     @Override
     public Uri insert(@NonNull Uri uri, ContentValues values) {
-        throw new UnsupportedOperationException();
+        Log.v(Constants.TAG, "insert(uri=" + uri + ")");
+
+        int match = mUriMatcher.match(uri);
+        if (match != TRUST_IDENTITY) {
+            throw new UnsupportedOperationException();
+        }
+
+        boolean callerIsAllowed = mApiPermissionHelper.isAllowedIgnoreErrors();
+        if (!callerIsAllowed) {
+            throw new AccessControlException("An application must register before use of KeychainExternalProvider!");
+        }
+
+        Long masterKeyId = values.getAsLong(ApiTrustIdentity.MASTER_KEY_ID);
+        if (masterKeyId == null) {
+            throw new IllegalArgumentException("master_key_id must be a non-null value!");
+        }
+
+        ContentValues actualValues = new ContentValues();
+        actualValues.put(ApiTrustIdentity.PACKAGE_NAME, mApiPermissionHelper.getCurrentCallingPackage());
+        actualValues.put(ApiTrustIdentity.TRUST_ID, uri.getLastPathSegment());
+        actualValues.put(ApiTrustIdentity.MASTER_KEY_ID, masterKeyId);
+        actualValues.put(ApiTrustIdentity.LAST_UPDATED, new Date().getTime() / 1000);
+
+        SQLiteDatabase db = getDb().getWritableDatabase();
+        try {
+            db.insert(Tables.API_TRUST_IDENTITIES, null, actualValues);
+            return uri;
+        } finally {
+            db.close();
+        }
     }
 
     @Override
-    public int delete(@NonNull Uri uri, String additionalSelection, String[] selectionArgs) {
-        throw new UnsupportedOperationException();
+    public int delete(@NonNull Uri uri, String selection, String[] selectionArgs) {
+        Log.v(Constants.TAG, "delete(uri=" + uri + ")");
+
+        int match = mUriMatcher.match(uri);
+        if (match != TRUST_IDENTITY || selection != null || selectionArgs != null) {
+            throw new UnsupportedOperationException();
+        }
+
+        boolean callerIsAllowed = mApiPermissionHelper.isAllowedIgnoreErrors();
+        if (!callerIsAllowed) {
+            throw new AccessControlException("An application must register before use of KeychainExternalProvider!");
+        }
+
+        String actualSelection = ApiTrustIdentity.PACKAGE_NAME + " = ? AND " + ApiTrustIdentity.TRUST_ID + " = ?";
+        String[] actualSelectionArgs = new String[] {
+                mApiPermissionHelper.getCurrentCallingPackage(),
+                uri.getLastPathSegment()
+        };
+
+        SQLiteDatabase db = getDb().getWritableDatabase();
+        try {
+            return db.delete(Tables.API_TRUST_IDENTITIES, actualSelection, actualSelectionArgs);
+        } finally {
+            db.close();
+        }
     }
 
     @Override
