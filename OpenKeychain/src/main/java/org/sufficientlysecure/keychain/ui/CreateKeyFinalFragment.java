@@ -17,6 +17,11 @@
 
 package org.sufficientlysecure.keychain.ui;
 
+
+import java.util.Date;
+import java.util.Iterator;
+import java.util.regex.Pattern;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
@@ -37,6 +42,7 @@ import org.bouncycastle.bcpg.sig.KeyFlags;
 import org.openintents.openpgp.util.OpenPgpUtils;
 import org.sufficientlysecure.keychain.Constants;
 import org.sufficientlysecure.keychain.R;
+import org.sufficientlysecure.keychain.keyimport.ParcelableHkpKeyserver;
 import org.sufficientlysecure.keychain.operations.results.EditKeyResult;
 import org.sufficientlysecure.keychain.operations.results.OperationResult;
 import org.sufficientlysecure.keychain.operations.results.UploadResult;
@@ -52,13 +58,8 @@ import org.sufficientlysecure.keychain.service.input.CryptoInputParcel;
 import org.sufficientlysecure.keychain.ui.CreateKeyActivity.FragAction;
 import org.sufficientlysecure.keychain.ui.base.CryptoOperationHelper;
 import org.sufficientlysecure.keychain.util.Log;
-import org.sufficientlysecure.keychain.keyimport.ParcelableHkpKeyserver;
 import org.sufficientlysecure.keychain.util.Passphrase;
 import org.sufficientlysecure.keychain.util.Preferences;
-
-import java.util.Date;
-import java.util.Iterator;
-import java.util.regex.Pattern;
 
 public class CreateKeyFinalFragment extends Fragment {
 
