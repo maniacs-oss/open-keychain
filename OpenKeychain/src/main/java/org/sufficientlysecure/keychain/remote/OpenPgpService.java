@@ -227,7 +227,10 @@ public class OpenPgpService extends Service {
                 compressionId = PgpSecurityConstants.OpenKeychainCompressionAlgorithmTags.UNCOMPRESSED;
             }
 
-            KeyIdResult keyIdResult = mKeyIdExtractor.returnKeyIdsFromIntent(data, false);
+            TrustIdentityDataAccessObject trustIdentityDao = new TrustIdentityDataAccessObject(getBaseContext(),
+                    mApiPermissionHelper.getCurrentCallingPackage());
+
+            KeyIdResult keyIdResult = mKeyIdExtractor.returnKeyIdsFromIntent(data, false, trustIdentityDao);
             if (keyIdResult.hasResultIntent()) {
                 return keyIdResult.getResultIntent();
             }
@@ -361,10 +364,6 @@ public class OpenPgpService extends Service {
 
             byte[] detachedSignature = data.getByteArrayExtra(OpenPgpApi.EXTRA_DETACHED_SIGNATURE);
             String senderAddress = data.getStringExtra(OpenPgpApi.EXTRA_SENDER_ADDRESS);
-
-            TrustIdentityDataAccessObject trustIdentityDao = new TrustIdentityDataAccessObject(
-                    getBaseContext(), mApiPermissionHelper.getCurrentCallingPackage());
-            String senderTrustId = updateTrustIdStateFromIntent(data, trustIdentityDao);
 
             PgpDecryptVerifyOperation op = new PgpDecryptVerifyOperation(this, mKeyRepository, progressable);
 
@@ -685,7 +684,10 @@ public class OpenPgpService extends Service {
     }
 
     private Intent getKeyIdsImpl(Intent data) {
-        KeyIdResult keyIdResult = mKeyIdExtractor.returnKeyIdsFromIntent(data, true);
+        TrustIdentityDataAccessObject trustIdentityDao = new TrustIdentityDataAccessObject(getBaseContext(),
+                mApiPermissionHelper.getCurrentCallingPackage());
+
+        KeyIdResult keyIdResult = mKeyIdExtractor.returnKeyIdsFromIntent(data, true, trustIdentityDao);
         if (keyIdResult.hasResultIntent()) {
             return keyIdResult.getResultIntent();
         }

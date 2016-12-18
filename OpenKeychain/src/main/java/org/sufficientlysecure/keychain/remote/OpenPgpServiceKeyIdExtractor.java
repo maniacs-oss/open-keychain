@@ -19,6 +19,7 @@ import org.sufficientlysecure.keychain.pgp.KeyRing;
 import org.sufficientlysecure.keychain.provider.KeychainContract;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
 import org.sufficientlysecure.keychain.provider.KeychainDatabase.Tables;
+import org.sufficientlysecure.keychain.provider.TrustIdentityDataAccessObject;
 import org.sufficientlysecure.keychain.ui.util.KeyFormattingUtils;
 import org.sufficientlysecure.keychain.util.Log;
 
@@ -54,6 +55,11 @@ class OpenPgpServiceKeyIdExtractor {
 
 
     KeyIdResult returnKeyIdsFromIntent(Intent data, boolean askIfNoUserIdsProvided) {
+        return returnKeyIdsFromIntent(data, askIfNoUserIdsProvided, null);
+    }
+
+    KeyIdResult returnKeyIdsFromIntent(Intent data, boolean askIfNoUserIdsProvided,
+            TrustIdentityDataAccessObject trustIdentityDao) {
         HashSet<Long> encryptKeyIds = new HashSet<>();
 
         boolean hasKeysFromSelectPubkeyActivity = data.hasExtra(OpenPgpApi.EXTRA_KEY_IDS_SELECTED);
@@ -64,7 +70,7 @@ class OpenPgpServiceKeyIdExtractor {
         } else if (data.hasExtra(OpenPgpApi.EXTRA_USER_IDS) || askIfNoUserIdsProvided) {
             String[] userIds = data.getStringArrayExtra(OpenPgpApi.EXTRA_USER_IDS);
             boolean isOpportunistic = data.getBooleanExtra(OpenPgpApi.EXTRA_OPPORTUNISTIC_ENCRYPTION, false);
-            KeyIdResult result = returnKeyIdsFromEmails(data, userIds, isOpportunistic);
+            KeyIdResult result = returnKeyIdsFromEmails(data, userIds, isOpportunistic, trustIdentityDao);
 
             if (result.mResultIntent != null) {
                 return result;
@@ -91,7 +97,8 @@ class OpenPgpServiceKeyIdExtractor {
         return new KeyIdResult(encryptKeyIds);
     }
 
-    private KeyIdResult returnKeyIdsFromEmails(Intent data, String[] encryptionUserIds, boolean isOpportunistic) {
+    private KeyIdResult returnKeyIdsFromEmails(Intent data, String[] encryptionUserIds, boolean isOpportunistic,
+            TrustIdentityDataAccessObject trustIdentityDao) {
         boolean hasUserIds = (encryptionUserIds != null && encryptionUserIds.length > 0);
 
         HashSet<Long> keyIds = new HashSet<>();
@@ -101,6 +108,14 @@ class OpenPgpServiceKeyIdExtractor {
             for (String rawUserId : encryptionUserIds) {
                 OpenPgpUtils.UserId userId = KeyRing.splitUserId(rawUserId);
                 String email = userId.email != null ? userId.email : rawUserId;
+
+                Long trustIdMasterKeyId = trustIdentityDao.getMasterKeyIdForTrustId(email);
+                if (trustIdMasterKeyId != null) {
+                    Log.d(Constants.TAG, "using trust id for encryption");
+                    keyIds.add(trustIdMasterKeyId);
+                    continue;
+                }
+
                 // try to find the key for this specific email
                 Uri uri = KeyRings.buildUnifiedKeyRingsFindByEmailUri(email);
                 Cursor cursor = contentResolver.query(uri, KEY_SEARCH_PROJECTION, KEY_SEARCH_WHERE, null, null);
