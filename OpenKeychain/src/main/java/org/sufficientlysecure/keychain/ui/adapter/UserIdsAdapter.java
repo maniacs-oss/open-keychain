@@ -59,6 +59,17 @@ public class UserIdsAdapter extends UserAttributesAdapter {
         this(context, c, flags, true, null);
     }
 
+    public static boolean isSingleNameOnlyCursor(Cursor cursor) {
+        if (cursor.getCount() != 1 || !cursor.moveToFirst()) {
+            return false;
+        }
+
+        String userId = cursor.getString(INDEX_USER_ID);
+        OpenPgpUtils.UserId splitUserId = KeyRing.splitUserId(userId);
+
+        return splitUserId.name != null && splitUserId.email == null && splitUserId.comment == null;
+    }
+
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         TextView vName = (TextView) view.findViewById(R.id.user_id_item_name);

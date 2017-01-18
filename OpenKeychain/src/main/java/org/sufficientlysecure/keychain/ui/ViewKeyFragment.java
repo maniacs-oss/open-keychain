@@ -101,6 +101,7 @@ public class ViewKeyFragment extends LoaderFragment implements
     private Uri mDataUri;
     private PostponeType mPostponeType;
 
+    private CardView mUserIdsCard;
     private ListView mUserIds;
 
     private ListView mTrustIds;
@@ -136,6 +137,7 @@ public class ViewKeyFragment extends LoaderFragment implements
         View root = super.onCreateView(inflater, superContainer, savedInstanceState);
         View view = inflater.inflate(R.layout.view_key_fragment, getContainer());
 
+        mUserIdsCard = (CardView) view.findViewById(R.id.view_key_card_user_ids);
         mUserIds = (ListView) view.findViewById(R.id.view_key_user_ids);
         Button userIdsEditButton = (Button) view.findViewById(R.id.view_key_card_user_ids_edit);
         mTrustIdsCard = (CardView) view.findViewById(R.id.view_key_card_trust_ids);
@@ -469,8 +471,14 @@ public class ViewKeyFragment extends LoaderFragment implements
             }
 
             case LOADER_ID_USER_IDS: {
+                if (UserIdsAdapter.isSingleNameOnlyCursor(data)) {
+                    mUserIdsCard.setVisibility(View.GONE);
+                    mUserIdsAdapter.swapCursor(null);
+                } else {
+                    mUserIdsCard.setVisibility(View.VISIBLE);
+                    mUserIdsAdapter.swapCursor(data);
+                }
                 setContentShown(true, false);
-                mUserIdsAdapter.swapCursor(data);
 
                 break;
             }
