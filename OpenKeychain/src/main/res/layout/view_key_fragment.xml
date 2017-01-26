@@ -97,6 +97,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:visibility="gone"
         card_view:cardBackgroundColor="?attr/colorCardViewBackground"
         card_view:cardCornerRadius="4dp"
         card_view:cardElevation="2dp"
@@ -115,6 +116,38 @@
 
             <org.sufficientlysecure.keychain.ui.widget.FixedListView
                 android:id="@+id/view_key_trust_ids"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="4dp" />
+
+        </LinearLayout>
+
+    </android.support.v7.widget.CardView>
+
+    <android.support.v7.widget.CardView
+        android:id="@+id/view_key_card_api_identities"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        card_view:cardBackgroundColor="?attr/colorCardViewBackground"
+        card_view:cardCornerRadius="4dp"
+        card_view:cardElevation="2dp"
+        card_view:cardUseCompatPadding="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/CardViewHeader"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Used in Apps as" />
+
+            <org.sufficientlysecure.keychain.ui.widget.FixedListView
+                android:id="@+id/view_key_api_identities"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="4dp" />

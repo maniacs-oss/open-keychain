@@ -59,6 +59,7 @@ import org.sufficientlysecure.keychain.R;
 import org.sufficientlysecure.keychain.compatibility.DialogFragmentWorkaround;
 import org.sufficientlysecure.keychain.operations.results.OperationResult;
 import org.sufficientlysecure.keychain.provider.KeychainContract;
+import org.sufficientlysecure.keychain.ui.adapter.ApiIdentitiesAdapter;
 import org.sufficientlysecure.keychain.ui.adapter.LinkedIdsAdapter;
 import org.sufficientlysecure.keychain.ui.adapter.TrustIdsAdapter;
 import org.sufficientlysecure.keychain.ui.adapter.UserIdsAdapter;
@@ -88,6 +89,7 @@ public class ViewKeyFragment extends LoaderFragment implements
     private static final int LOADER_ID_TRUST_IDS = 2;
     private static final int LOADER_ID_LINKED_IDS = 3;
     private static final int LOADER_ID_LINKED_CONTACT = 4;
+    private static final int LOADER_ID_API_IDENTITIES = 5;
 
     private static final String LOADER_EXTRA_LINKED_CONTACT_MASTER_KEY_ID
             = "loader_linked_contact_master_key_id";
@@ -96,6 +98,7 @@ public class ViewKeyFragment extends LoaderFragment implements
 
     private UserIdsAdapter mUserIdsAdapter;
     private TrustIdsAdapter mTrustIdsAdapter;
+    private ApiIdentitiesAdapter mApiIdentitiesAdapter;
     private LinkedIdsAdapter mLinkedIdsAdapter;
 
     private Uri mDataUri;
@@ -103,6 +106,9 @@ public class ViewKeyFragment extends LoaderFragment implements
 
     private CardView mUserIdsCard;
     private ListView mUserIds;
+
+    private ListView mApiIdentities;
+    private CardView mApiIdentityCard;
 
     private ListView mTrustIds;
     private CardView mTrustIdsCard;
@@ -141,6 +147,8 @@ public class ViewKeyFragment extends LoaderFragment implements
         mUserIds = (ListView) view.findViewById(R.id.view_key_user_ids);
         Button userIdsEditButton = (Button) view.findViewById(R.id.view_key_card_user_ids_edit);
         mTrustIdsCard = (CardView) view.findViewById(R.id.view_key_card_trust_ids);
+        mApiIdentities = (ListView) view.findViewById(R.id.view_key_api_identities);
+        mApiIdentityCard = (CardView) view.findViewById(R.id.view_key_card_api_identities);
         mTrustIds = (ListView) view.findViewById(R.id.view_key_trust_ids);
         mLinkedIdsCard = (CardView) view.findViewById(R.id.card_linked_ids);
         mLinkedIds = (ListView) view.findViewById(R.id.view_key_linked_ids);
@@ -407,6 +415,10 @@ public class ViewKeyFragment extends LoaderFragment implements
                 return TrustIdsAdapter.createLoader(getActivity(), mDataUri);
             }
 
+            case LOADER_ID_API_IDENTITIES: {
+                return ApiIdentitiesAdapter.createLoader(getActivity(), mDataUri);
+            }
+
             case LOADER_ID_LINKED_IDS: {
                 return LinkedIdsAdapter.createLoader(getActivity(), mDataUri);
             }
@@ -462,6 +474,7 @@ public class ViewKeyFragment extends LoaderFragment implements
 
                     // init other things after we know if it's a secret key
                     initUserIds(mIsSecret);
+                    initApiIdentities(mIsSecret);
                     initTrustIds(mIsSecret);
                     initLinkedIds(mIsSecret);
                     initLinkedContactLoader(masterKeyId, mIsSecret);
@@ -486,6 +499,13 @@ public class ViewKeyFragment extends LoaderFragment implements
             case LOADER_ID_TRUST_IDS: {
                 mTrustIdsAdapter.swapCursor(data);
                 mTrustIdsCard.setVisibility(mTrustIdsAdapter.getCount() > 0 ? View.VISIBLE : View.GONE);
+
+                break;
+            }
+
+            case LOADER_ID_API_IDENTITIES: {
+                mApiIdentitiesAdapter.swapCursor(data);
+                mApiIdentityCard.setVisibility(mApiIdentitiesAdapter.getCount() > 0 ? View.VISIBLE : View.GONE);
 
                 break;
             }
@@ -529,6 +549,15 @@ public class ViewKeyFragment extends LoaderFragment implements
         mUserIdsAdapter = new UserIdsAdapter(getActivity(), null, 0, !isSecret, null);
         mUserIds.setAdapter(mUserIdsAdapter);
         getLoaderManager().initLoader(LOADER_ID_USER_IDS, null, this);
+    }
+
+    private void initApiIdentities(boolean isSecret) {
+        if (!isSecret) {
+            return;
+        }
+        mApiIdentitiesAdapter = new ApiIdentitiesAdapter(getActivity(), null, 0);
+        mApiIdentities.setAdapter(mApiIdentitiesAdapter);
+        getLoaderManager().initLoader(LOADER_ID_API_IDENTITIES, null, this);
     }
 
     private void initTrustIds(boolean isSecret) {
