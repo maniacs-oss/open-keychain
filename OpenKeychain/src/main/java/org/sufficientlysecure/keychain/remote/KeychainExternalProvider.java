@@ -181,7 +181,7 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                                 + " AND " + Tables.USER_PACKETS + "." + UserPackets.EMAIL + " LIKE " + TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES
                                 + ")"
                                 + " LEFT JOIN " + Tables.API_TRUST_IDENTITIES + " ON ("
-                                + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.TRUST_ID + " LIKE queried_addresses.address"
+                                + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " LIKE queried_addresses.address"
                                 + ")"
                                 + " LEFT JOIN " + Tables.CERTS + " ON ("
                                 + "(" + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
@@ -224,7 +224,7 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
 
                 HashMap<String, String> projectionMap = new HashMap<>();
                 projectionMap.put(ApiTrustIdentity._ID, "oid AS " + ApiTrustIdentity._ID);
-                projectionMap.put(ApiTrustIdentity.TRUST_ID, ApiTrustIdentity.TRUST_ID);
+                projectionMap.put(ApiTrustIdentity.IDENTIFIER, ApiTrustIdentity.IDENTIFIER);
                 projectionMap.put(ApiTrustIdentity.MASTER_KEY_ID, ApiTrustIdentity.MASTER_KEY_ID);
                 projectionMap.put(ApiTrustIdentity.LAST_UPDATED, ApiTrustIdentity.LAST_UPDATED);
                 qb.setProjectionMap(projectionMap);
@@ -235,7 +235,7 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 qb.appendWhere(Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME +
                         " = " + mApiPermissionHelper.getCurrentCallingPackage());
 
-                qb.appendWhere(Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.TRUST_ID + " = ");
+                qb.appendWhere(Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " = ");
                 qb.appendWhereEscapeString(uri.getLastPathSegment());
 
                 break;
@@ -318,7 +318,7 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
 
         ContentValues actualValues = new ContentValues();
         actualValues.put(ApiTrustIdentity.PACKAGE_NAME, mApiPermissionHelper.getCurrentCallingPackage());
-        actualValues.put(ApiTrustIdentity.TRUST_ID, uri.getLastPathSegment());
+        actualValues.put(ApiTrustIdentity.IDENTIFIER, uri.getLastPathSegment());
         actualValues.put(ApiTrustIdentity.MASTER_KEY_ID, masterKeyId);
         actualValues.put(ApiTrustIdentity.LAST_UPDATED, new Date().getTime() / 1000);
 
@@ -345,7 +345,7 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
             throw new AccessControlException("An application must register before use of KeychainExternalProvider!");
         }
 
-        String actualSelection = ApiTrustIdentity.PACKAGE_NAME + " = ? AND " + ApiTrustIdentity.TRUST_ID + " = ?";
+        String actualSelection = ApiTrustIdentity.PACKAGE_NAME + " = ? AND " + ApiTrustIdentity.IDENTIFIER + " = ?";
         String[] actualSelectionArgs = new String[] {
                 mApiPermissionHelper.getCurrentCallingPackage(),
                 uri.getLastPathSegment()

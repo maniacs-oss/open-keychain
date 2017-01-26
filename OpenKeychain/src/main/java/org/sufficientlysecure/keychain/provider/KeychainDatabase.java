@@ -34,6 +34,7 @@ import org.sufficientlysecure.keychain.Constants;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAppsAccountsColumns;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAppsAllowedKeysColumns;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAppsColumns;
+import org.sufficientlysecure.keychain.provider.KeychainContract.ApiIdentityColumns;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiTrustIdentityColumns;
 import org.sufficientlysecure.keychain.provider.KeychainContract.CertsColumns;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRingsColumns;
@@ -53,7 +54,7 @@ import org.sufficientlysecure.keychain.util.Log;
  */
 public class KeychainDatabase extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "openkeychain.db";
-    private static final int DATABASE_VERSION = 21;
+    private static final int DATABASE_VERSION = 22;
     private Context mContext;
 
     public interface Tables {
@@ -67,6 +68,7 @@ public class KeychainDatabase extends SQLiteOpenHelper {
         String API_ACCOUNTS = "api_accounts";
         String API_ALLOWED_KEYS = "api_allowed_keys";
         String API_TRUST_IDENTITIES = "api_trust_identities";
+        String API_IDENTITIES = "api_identities";
     }
 
     private static final String CREATE_KEYRINGS_PUBLIC =
@@ -160,11 +162,11 @@ public class KeychainDatabase extends SQLiteOpenHelper {
     private static final String CREATE_API_TRUST_IDENTITIES =
             "CREATE TABLE IF NOT EXISTS " + Tables.API_TRUST_IDENTITIES + " ("
                     + ApiTrustIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
-                    + ApiTrustIdentityColumns.TRUST_ID + " TEXT NOT NULL, "
+                    + ApiTrustIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
                     + ApiTrustIdentityColumns.LAST_UPDATED + " INTEGER NOT NULL, "
                     + ApiTrustIdentityColumns.MASTER_KEY_ID + " INTEGER NOT NULL, "
                     + "PRIMARY KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ", "
-                        + ApiTrustIdentityColumns.TRUST_ID + "), "
+                        + ApiTrustIdentityColumns.IDENTIFIER + "), "
                     + "FOREIGN KEY(" + ApiTrustIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
                         + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
                     + "FOREIGN KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ") REFERENCES "
@@ -337,18 +339,32 @@ public class KeychainDatabase extends SQLiteOpenHelper {
                 db.execSQL(
                         "CREATE TABLE IF NOT EXISTS " + Tables.API_TRUST_IDENTITIES + " ("
                                 + ApiTrustIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
-                                + ApiTrustIdentityColumns.TRUST_ID + " TEXT NOT NULL, "
+                                + ApiTrustIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
                                 + ApiTrustIdentityColumns.LAST_UPDATED + " INTEGER NOT NULL, "
                                 + ApiTrustIdentityColumns.MASTER_KEY_ID + " INTEGER NOT NULL, "
                                 + "PRIMARY KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ", "
-                                    + ApiTrustIdentityColumns.TRUST_ID + "), "
+                                    + ApiTrustIdentityColumns.IDENTIFIER + "), "
                                 + "FOREIGN KEY(" + ApiTrustIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
                                     + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
                                 + "FOREIGN KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ") REFERENCES "
                                     + Tables.API_APPS + "(" + ApiAppsColumns.PACKAGE_NAME + ") ON DELETE CASCADE"
                                 + ")"
                 );
-                if (oldVersion == 20) {
+            case 21:
+                db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS " + Tables.API_IDENTITIES + " ("
+                                + ApiIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
+                                + ApiIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
+                                + ApiIdentityColumns.MASTER_KEY_ID + " INTEGER NOT NULL, "
+                                + "PRIMARY KEY(" + ApiIdentityColumns.PACKAGE_NAME + ", "
+                                + ApiIdentityColumns.IDENTIFIER + "), "
+                                + "FOREIGN KEY(" + ApiIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
+                                + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
+                                + "FOREIGN KEY(" + ApiIdentityColumns.PACKAGE_NAME + ") REFERENCES "
+                                + Tables.API_APPS + "(" + ApiAppsColumns.PACKAGE_NAME + ") ON DELETE CASCADE"
+                                + ")"
+                );
+                if (oldVersion == 20 || oldVersion == 21) {
                     return;
                 }
         }

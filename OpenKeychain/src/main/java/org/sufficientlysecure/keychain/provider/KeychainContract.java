@@ -101,8 +101,14 @@ public class KeychainContract {
 
     interface ApiTrustIdentityColumns {
         String PACKAGE_NAME = "package_name";
-        String TRUST_ID = "trust_id";
+        String IDENTIFIER = "identifier";
         String LAST_UPDATED = "last_updated";
+        String MASTER_KEY_ID = "master_key_id";
+    }
+
+    interface ApiIdentityColumns {
+        String PACKAGE_NAME = "package_name";
+        String IDENTIFIER = "identifier";
         String MASTER_KEY_ID = "master_key_id";
     }
 
@@ -136,7 +142,9 @@ public class KeychainContract {
     public static final String PATH_BY_PACKAGE_NAME = "by_package_name";
     public static final String PATH_BY_KEY_ID = "by_key_id";
 
-    public static final String BASE_TRUST_IDENTITIES = "trust_ids";
+    public static final String BASE_API_TRUST_IDENTITIES = "api_trust_identities";
+
+    public static final String BASE_API_IDENTITIES = "api_identities";
 
     public static class KeyRings implements BaseColumns, KeysColumns, UserPacketsColumns {
         public static final String MASTER_KEY_ID = KeysColumns.MASTER_KEY_ID;
@@ -375,7 +383,7 @@ public class KeychainContract {
 
     public static class ApiTrustIdentity implements ApiTrustIdentityColumns, BaseColumns {
         public static final Uri CONTENT_URI = BASE_CONTENT_URI_INTERNAL.buildUpon()
-                .appendPath(BASE_TRUST_IDENTITIES).build();
+                .appendPath(BASE_API_TRUST_IDENTITIES).build();
 
         public static Uri buildByKeyUri(Uri uri) {
             return CONTENT_URI.buildUpon().appendPath(PATH_BY_KEY_ID).appendPath(uri.getPathSegments().get(1)).build();
@@ -383,6 +391,19 @@ public class KeychainContract {
 
         public static Uri buildByPackageNameAndTrustId(String packageName, String trustId) {
             return CONTENT_URI.buildUpon().appendPath(PATH_BY_PACKAGE_NAME).appendPath(packageName).appendPath(trustId).build();
+        }
+    }
+
+    public static class ApiIdentity implements ApiIdentityColumns, BaseColumns {
+        public static final Uri CONTENT_URI = BASE_CONTENT_URI_INTERNAL.buildUpon()
+                .appendPath(BASE_API_IDENTITIES).build();
+
+        public static Uri buildByKeyUri(Uri uri) {
+            return CONTENT_URI.buildUpon().appendPath(PATH_BY_KEY_ID).appendPath(uri.getPathSegments().get(1)).build();
+        }
+
+        public static Uri buildByPackageNameAndApiIdentity(String packageName, String apiIdentity) {
+            return CONTENT_URI.buildUpon().appendPath(PATH_BY_PACKAGE_NAME).appendPath(packageName).appendPath(apiIdentity).build();
         }
     }
 

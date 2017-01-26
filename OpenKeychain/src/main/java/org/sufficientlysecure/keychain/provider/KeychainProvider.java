@@ -36,6 +36,7 @@ import org.sufficientlysecure.keychain.pgp.WrappedUserAttribute;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAccounts;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAllowedKeys;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiApps;
+import org.sufficientlysecure.keychain.provider.KeychainContract.ApiIdentity;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiTrustIdentity;
 import org.sufficientlysecure.keychain.provider.KeychainContract.Certs;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRingData;
@@ -85,6 +86,10 @@ public class KeychainProvider extends ContentProvider {
     private static final int TRUST_IDS_BY_MASTER_KEY_ID = 601;
     private static final int TRUST_IDS_BY_PACKAGE_NAME = 602;
     private static final int TRUST_IDS_BY_PACKAGE_NAME_AND_TRUST_ID = 603;
+
+    private static final int API_IDENTITIES_BY_MASTER_KEY_ID = 701;
+    private static final int API_IDENTITIES_BY_PACKAGE_NAME = 702;
+    private static final int API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY = 703;
 
     protected UriMatcher mUriMatcher;
 
@@ -210,17 +215,31 @@ public class KeychainProvider extends ContentProvider {
          * Trust Identity access
          *
          * <pre>
-         * trust_ids/by_key_id/_
+         * api_trust_identities/by_key_id/_
          *
          * </pre>
          */
-        matcher.addURI(authority, KeychainContract.BASE_TRUST_IDENTITIES + "/" +
+        matcher.addURI(authority, KeychainContract.BASE_API_TRUST_IDENTITIES + "/" +
                 KeychainContract.PATH_BY_KEY_ID + "/*", TRUST_IDS_BY_MASTER_KEY_ID);
-        matcher.addURI(authority, KeychainContract.BASE_TRUST_IDENTITIES + "/" +
+        matcher.addURI(authority, KeychainContract.BASE_API_TRUST_IDENTITIES + "/" +
                 KeychainContract.PATH_BY_PACKAGE_NAME + "/*", TRUST_IDS_BY_PACKAGE_NAME);
-        matcher.addURI(authority, KeychainContract.BASE_TRUST_IDENTITIES + "/" +
+        matcher.addURI(authority, KeychainContract.BASE_API_TRUST_IDENTITIES + "/" +
                 KeychainContract.PATH_BY_PACKAGE_NAME + "/*/*", TRUST_IDS_BY_PACKAGE_NAME_AND_TRUST_ID);
 
+        /**
+         * Api Identity access
+         *
+         * <pre>
+         * api_identities/by_key_id/_
+         *
+         * </pre>
+         */
+        matcher.addURI(authority, KeychainContract.BASE_API_IDENTITIES + "/" +
+                KeychainContract.PATH_BY_KEY_ID + "/*", API_IDENTITIES_BY_MASTER_KEY_ID);
+        matcher.addURI(authority, KeychainContract.BASE_API_IDENTITIES + "/" +
+                KeychainContract.PATH_BY_PACKAGE_NAME + "/*", API_IDENTITIES_BY_PACKAGE_NAME);
+        matcher.addURI(authority, KeychainContract.BASE_API_IDENTITIES + "/" +
+                KeychainContract.PATH_BY_PACKAGE_NAME + "/*/*", API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY);
 
         /**
          * to access table containing last updated dates of keys
@@ -691,7 +710,7 @@ public class KeychainProvider extends ContentProvider {
                 HashMap<String, String> projectionMap = new HashMap<>();
                 projectionMap.put(ApiTrustIdentity._ID, "oid AS " + ApiTrustIdentity._ID);
                 projectionMap.put(ApiTrustIdentity.PACKAGE_NAME, ApiTrustIdentity.PACKAGE_NAME);
-                projectionMap.put(ApiTrustIdentity.TRUST_ID, ApiTrustIdentity.TRUST_ID);
+                projectionMap.put(ApiTrustIdentity.IDENTIFIER, ApiTrustIdentity.IDENTIFIER);
                 projectionMap.put(ApiTrustIdentity.MASTER_KEY_ID, ApiTrustIdentity.MASTER_KEY_ID);
                 projectionMap.put(ApiTrustIdentity.LAST_UPDATED, ApiTrustIdentity.LAST_UPDATED);
                 qb.setProjectionMap(projectionMap);
@@ -713,7 +732,45 @@ public class KeychainProvider extends ContentProvider {
                     String trustId = uri.getPathSegments().get(3);
 
                     selection = Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME + " = ? AND " +
-                            Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.TRUST_ID + " = ?";
+                            Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " = ?";
+                    selectionArgs = new String[] { packageName, trustId };
+                }
+
+                break;
+            }
+
+            case API_IDENTITIES_BY_MASTER_KEY_ID:
+            case API_IDENTITIES_BY_PACKAGE_NAME:
+            case API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY: {
+                if (selection != null || selectionArgs != null) {
+                    throw new UnsupportedOperationException();
+                }
+
+                HashMap<String, String> projectionMap = new HashMap<>();
+                projectionMap.put(ApiIdentity._ID, "oid AS " + ApiIdentity._ID);
+                projectionMap.put(ApiIdentity.PACKAGE_NAME, ApiIdentity.PACKAGE_NAME);
+                projectionMap.put(ApiIdentity.IDENTIFIER, ApiIdentity.IDENTIFIER);
+                projectionMap.put(ApiIdentity.MASTER_KEY_ID, ApiIdentity.MASTER_KEY_ID);
+                qb.setProjectionMap(projectionMap);
+
+                qb.setTables(Tables.API_IDENTITIES);
+
+                if (match == API_IDENTITIES_BY_MASTER_KEY_ID) {
+                    long masterKeyId = Long.parseLong(uri.getLastPathSegment());
+
+                    selection = Tables.API_IDENTITIES + "." + ApiIdentity.MASTER_KEY_ID + " = ?";
+                    selectionArgs = new String[] { Long.toString(masterKeyId) };
+                } else if (match == API_IDENTITIES_BY_PACKAGE_NAME) {
+                    String packageName = uri.getPathSegments().get(2);
+
+                    selection = Tables.API_IDENTITIES + "." + ApiIdentity.PACKAGE_NAME + " = ?";
+                    selectionArgs = new String[] { packageName };
+                } else { // TRUST_IDS_BY_PACKAGE_NAME_AND_TRUST_ID
+                    String packageName = uri.getPathSegments().get(2);
+                    String trustId = uri.getPathSegments().get(3);
+
+                    selection = Tables.API_IDENTITIES + "." + ApiIdentity.PACKAGE_NAME + " = ? AND " +
+                            Tables.API_IDENTITIES + "." + ApiIdentity.IDENTIFIER + " = ?";
                     selectionArgs = new String[] { packageName, trustId };
                 }
 
@@ -984,6 +1041,14 @@ public class KeychainProvider extends ContentProvider {
                         selectionArgs);
                 break;
             }
+            case API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY: {
+                String packageName = uri.getPathSegments().get(2);
+                String apiIdentity = uri.getLastPathSegment();
+                count = db.delete(Tables.API_IDENTITIES,
+                        ApiIdentity.PACKAGE_NAME + " = ? AND " + ApiIdentity.IDENTIFIER + " = ?",
+                        new String[] { packageName, apiIdentity });
+                break;
+            }
             default: {
                 throw new UnsupportedOperationException("Unknown uri: " + uri);
             }
@@ -1042,12 +1107,31 @@ public class KeychainProvider extends ContentProvider {
                     ContentValues actualValues = new ContentValues();
                     String packageName = uri.getPathSegments().get(2);
                     actualValues.put(ApiTrustIdentity.PACKAGE_NAME, packageName);
-                    actualValues.put(ApiTrustIdentity.TRUST_ID, uri.getLastPathSegment());
+                    actualValues.put(ApiTrustIdentity.IDENTIFIER, uri.getLastPathSegment());
                     actualValues.put(ApiTrustIdentity.MASTER_KEY_ID, masterKeyId);
                     actualValues.put(ApiTrustIdentity.LAST_UPDATED, updateTime);
 
                     try {
                         db.replace(Tables.API_TRUST_IDENTITIES, null, actualValues);
+                    } finally {
+                        db.close();
+                    }
+                    break;
+                }
+                case API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY: {
+                    Long masterKeyId = values.getAsLong(ApiIdentity.MASTER_KEY_ID);
+                    if (masterKeyId == null) {
+                        throw new IllegalArgumentException("master_key_id must be a non-null value!");
+                    }
+
+                    ContentValues actualValues = new ContentValues();
+                    String packageName = uri.getPathSegments().get(2);
+                    actualValues.put(ApiIdentity.PACKAGE_NAME, packageName);
+                    actualValues.put(ApiIdentity.IDENTIFIER, uri.getLastPathSegment());
+                    actualValues.put(ApiIdentity.MASTER_KEY_ID, masterKeyId);
+
+                    try {
+                        db.replace(Tables.API_IDENTITIES, null, actualValues);
                     } finally {
                         db.close();
                     }

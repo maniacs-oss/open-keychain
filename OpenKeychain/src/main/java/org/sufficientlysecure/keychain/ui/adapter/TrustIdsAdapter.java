@@ -47,7 +47,7 @@ public class TrustIdsAdapter extends CursorAdapter {
     private static final String[] TRUST_IDS_PROJECTION = new String[] {
             ApiTrustIdentity._ID,
             ApiTrustIdentity.PACKAGE_NAME,
-            ApiTrustIdentity.TRUST_ID,
+            ApiTrustIdentity.IDENTIFIER,
     };
     private static final int INDEX_PACKAGE_NAME = 1;
     private static final int INDEX_TRUST_ID = 2;

@@ -69,6 +69,7 @@ import org.sufficientlysecure.keychain.pgp.exception.PgpKeyNotFoundException;
 import org.sufficientlysecure.keychain.provider.ApiDataAccessObject;
 import org.sufficientlysecure.keychain.provider.KeyRepository;
 import org.sufficientlysecure.keychain.provider.KeyWritableRepository;
+import org.sufficientlysecure.keychain.provider.ApiIdentityDataAccessObject;
 import org.sufficientlysecure.keychain.provider.KeychainContract;
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiAccounts;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
@@ -90,9 +91,10 @@ public class OpenPgpService extends Service {
     public static final int API_VERSION_WITH_DECRYPTION_RESULT = 8;
     public static final int API_VERSION_WITH_RESULT_NO_SIGNATURE = 8;
     public static final int API_VERSION_WITH_TRUST_IDENTITIES = 12;
+    public static final int API_VERSION_WITH_API_IDENTITIES = 13;
 
     public static final List<Integer> SUPPORTED_VERSIONS =
-            Collections.unmodifiableList(Arrays.asList(3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+            Collections.unmodifiableList(Arrays.asList(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13));
     public static final int NO_KEY = -1;
 
 
@@ -686,6 +688,84 @@ public class OpenPgpService extends Service {
         }
     }
 
+    private Intent identityCheckOrSetup(Intent data) {
+        if (data.getIntExtra(OpenPgpApi.EXTRA_API_VERSION, -1) < API_VERSION_WITH_API_IDENTITIES) {
+            Intent result = new Intent();
+            OpenPgpError error = new OpenPgpError
+                    (OpenPgpError.INCOMPATIBLE_API_VERSIONS, "Incompatible API versions!\n"
+                            + "used API version: " + data.getIntExtra(OpenPgpApi.EXTRA_API_VERSION, -1) + "\n"
+                            + "supported API versions: " + SUPPORTED_VERSIONS);
+            result.putExtra(OpenPgpApi.RESULT_ERROR, error);
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+            return result;
+        }
+
+        Intent permissionIntent = mApiPermissionHelper.isAllowedOrReturnIntent(data);
+        if (permissionIntent != null) {
+            return permissionIntent;
+        }
+
+        String apiIdentity = data.getStringExtra(OpenPgpApi.EXTRA_API_IDENTITY);
+        if (apiIdentity == null) {
+            Intent result = new Intent();
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+            result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.GENERIC_ERROR,
+                    "Missing required extra: EXTRA_API_IDENTITY"));
+            return result;
+        }
+
+        String currentPkg = mApiPermissionHelper.getCurrentCallingPackage();
+        ApiIdentityDataAccessObject apiDao = new ApiIdentityDataAccessObject(this, currentPkg);
+
+        Long identityMasterKeyId = apiDao.getMasterKeyIdForIdentity(apiIdentity);
+
+        // TODO check for problems: missing or stripped signing key, etc.
+        /*
+        HashSet<Long> allowedKeyIds = mApiDao.getAllowedKeyIdsForApp(
+                KeychainContract.ApiAllowedKeys.buildBaseUri(currentPkg));
+        if (!allowedKeyIds.contains(identityMasterKeyId)) {
+            ApiPendingIntentFactory piFactory = new ApiPendingIntentFactory(getBaseContext());
+            PendingIntent pi = piFactory.createSelectAllowedKeysPendingIntent(data, currentPkg);
+
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+            result.putExtra(OpenPgpApi.RESULT_INTENT, pi);
+            result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.KEY_NO_ACCESS,
+                    "Key does not exist or access denied."));
+            return result;
+        }
+        */
+
+        // all results below will have "choose different key" as their pending intent
+        ApiPendingIntentFactory piFactory = new ApiPendingIntentFactory(getBaseContext());
+        PendingIntent chooseKeyPendingIntent = piFactory.createSelectIdentityKeyPendingIntent(
+                data, currentPkg, apiIdentity, identityMasterKeyId);
+
+        if (identityMasterKeyId == null) {
+            Intent result = new Intent();
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+            result.putExtra(OpenPgpApi.RESULT_INTENT, chooseKeyPendingIntent);
+            result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.KEY_NOT_CONFIGURED,
+                    "No key configured."));
+            return result;
+        }
+
+        try {
+            Intent result = new Intent();
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_SUCCESS);
+            result.putExtra(OpenPgpApi.RESULT_INTENT, chooseKeyPendingIntent);
+            String userId = mKeyRepository.getCachedPublicKeyRing(identityMasterKeyId).getPrimaryUserId();
+            result.putExtra(OpenPgpApi.RESULT_USER_ID, userId);
+            return result;
+        } catch (PgpKeyNotFoundException e) {
+            Intent result = new Intent();
+            result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
+            result.putExtra(OpenPgpApi.RESULT_INTENT, chooseKeyPendingIntent);
+            result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.GENERIC_ERROR,
+                    "Key does not exist or access denied."));
+            return result;
+        }
+    }
+
     private Intent getKeyIdsImpl(Intent data) {
         TrustIdentityDataAccessObject trustIdentityDao = new TrustIdentityDataAccessObject(getBaseContext(),
                 mApiPermissionHelper.getCurrentCallingPackage());
@@ -822,7 +902,7 @@ public class OpenPgpService extends Service {
             }
 
             try {
-                String userId = mProviderHelper.getCachedPublicKeyRing(keyId).getPrimaryUserId();
+                String userId = mKeyRepository.getCachedPublicKeyRing(keyId).getPrimaryUserId();
                 result.putExtra(OpenPgpApi.RESULT_USER_ID, userId);
             } catch (PgpKeyNotFoundException e) {
                 result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
@@ -1016,6 +1096,9 @@ public class OpenPgpService extends Service {
             }
             case OpenPgpApi.ACTION_GET_SIGN_KEY_ID: {
                 return getSignKeyIdImpl(data);
+            }
+            case OpenPgpApi.ACTION_CHECK_IDENTITY: {
+                return identityCheckOrSetup(data);
             }
             case OpenPgpApi.ACTION_GET_KEY_IDS: {
                 return getKeyIdsImpl(data);

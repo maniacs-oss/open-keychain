@@ -33,6 +33,7 @@ import org.sufficientlysecure.keychain.remote.ui.RemoteImportKeysActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemotePassphraseDialogActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemoteRegisterActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemoteSecurityTokenOperationActivity;
+import org.sufficientlysecure.keychain.remote.ui.RemoteSelectIdentityActivityIdentityKey;
 import org.sufficientlysecure.keychain.remote.ui.RemoteSelectPubKeyActivity;
 import org.sufficientlysecure.keychain.remote.ui.RequestKeyPermissionActivity;
 import org.sufficientlysecure.keychain.remote.ui.SelectSignKeyIdActivity;
@@ -81,6 +82,16 @@ public class ApiPendingIntentFactory {
         // pass params through to activity that it can be returned again later to repeat pgp operation
         intent.putExtra(RemotePassphraseDialogActivity.EXTRA_REQUIRED_INPUT, requiredInput);
         intent.putExtra(RemotePassphraseDialogActivity.EXTRA_CRYPTO_INPUT, cryptoInput);
+
+        return createInternal(data, intent);
+    }
+
+    PendingIntent createSelectIdentityKeyPendingIntent(
+            Intent data, String packageName, String apiIdentity, Long currentMasterKeyId) {
+        Intent intent = new Intent(mContext, RemoteSelectIdentityActivityIdentityKey.class);
+        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_PACKAGE_NAME, packageName);
+        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_API_IDENTITY, apiIdentity);
+        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_CURRENT_MASTER_KEY_ID, currentMasterKeyId);
 
         return createInternal(data, intent);
     }
