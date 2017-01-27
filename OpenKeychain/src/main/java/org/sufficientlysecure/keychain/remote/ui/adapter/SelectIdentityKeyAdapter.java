@@ -85,7 +85,7 @@ public class SelectIdentityKeyAdapter extends KeyCursorAdapter<CursorAdapter.Key
                 if (userIdSplit.name != null) {
                     userIdText.setText(context.getString(R.string.use_key, userIdSplit.name));
                 } else {
-                    userIdText.setText(R.string.use_key_no_name);
+                    userIdText.setText(context.getString(R.string.use_key, userIdSplit.email));
                 }
             }
 
@@ -123,20 +123,16 @@ public class SelectIdentityKeyAdapter extends KeyCursorAdapter<CursorAdapter.Key
 
                 userIdText.setTextColor(textColor);
 
-                if (cursor.hasDuplicate()) {
-                    String dateTime = DateUtils.formatDateTime(context,
-                            cursor.getCreationTime(),
-                            DateUtils.FORMAT_SHOW_DATE
-                                    | DateUtils.FORMAT_SHOW_TIME
-                                    | DateUtils.FORMAT_SHOW_YEAR
-                                    | DateUtils.FORMAT_ABBREV_MONTH);
-                    creationText.setText(context.getString(R.string.label_key_created,
-                            dateTime));
-                    creationText.setTextColor(textColor);
-                    creationText.setVisibility(View.VISIBLE);
-                } else {
-                    creationText.setVisibility(View.GONE);
-                }
+                String dateTime = DateUtils.formatDateTime(context,
+                        cursor.getCreationTime(),
+                        DateUtils.FORMAT_SHOW_DATE
+                                | DateUtils.FORMAT_SHOW_TIME
+                                | DateUtils.FORMAT_SHOW_YEAR
+                                | DateUtils.FORMAT_ABBREV_MONTH);
+                creationText.setText(context.getString(R.string.label_key_created,
+                        dateTime));
+                creationText.setTextColor(textColor);
+                creationText.setVisibility(View.VISIBLE);
             }
 
         }

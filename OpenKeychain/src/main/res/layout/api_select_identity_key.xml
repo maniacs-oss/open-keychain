@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:custom="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -65,66 +66,131 @@
         android:textStyle="bold"
         />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?android:attr/listDivider" />
-
-    <fragment
-        android:id="@+id/select_key_fragment"
+    <org.sufficientlysecure.keychain.ui.widget.ToolableViewAnimator
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:name="org.sufficientlysecure.keychain.remote.ui.SelectIdentityKeyListFragment"
-        tools:layout="@layout/select_identity_key_item"
-        />
+        android:id="@+id/status_animator"
+        android:inAnimation="@anim/fade_in"
+        android:outAnimation="@anim/fade_out"
+        custom:initialView="2">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone"
-        android:id="@+id/layout_create_key"
-        tools:visibility="visible"
-        >
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
+
+            <fragment
+                android:id="@+id/select_key_fragment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:name="org.sufficientlysecure.keychain.remote.ui.SelectIdentityKeyListFragment"
+                tools:layout="@layout/select_identity_key_item"
+                />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:id="@+id/layout_create_key"
+                tools:visibility="visible"
+                >
+
+                <TextView
+                    android:background="?android:selectableItemBackground"
+                    android:paddingLeft="16dp"
+                    android:paddingRight="16dp"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
+                    android:layout_width="match_parent"
+                    android:text="@string/select_identity_create"
+                    android:layout_height="?android:attr/listPreferredItemHeight"
+                    android:drawableLeft="@drawable/ic_key_plus_grey600_24dp"
+                    android:drawablePadding="16dp"
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:id="@+id/button_create_key"
+                    />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?android:attr/listDivider" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="?android:attr/listPreferredItemHeight"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="@string/select_identity_disable"
+                android:background="?android:selectableItemBackground"
+                android:drawableLeft="@drawable/ic_close_grey_24dp"
+                android:drawablePadding="16dp"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:id="@+id/button_disable" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminate="true"
+                />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="Generating a key for this identity…"
+                />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="?android:attr/listPreferredItemHeight"
+                android:layout_gravity="center_vertical"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:gravity="center_vertical"
+                android:id="@+id/key_creation_done"
+                android:text="All done! Click here to proceed!"
+                />
+        </LinearLayout>
 
         <TextView
-            android:background="?android:selectableItemBackground"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:textAppearance="?android:attr/textAppearanceMedium"
-            android:layout_width="match_parent"
-            android:text="@string/select_identity_create"
+            android:layout_width="wrap_content"
             android:layout_height="?android:attr/listPreferredItemHeight"
-            android:drawableLeft="@drawable/ic_key_plus_grey600_24dp"
-            android:drawablePadding="16dp"
-            android:gravity="center_vertical"
-            android:clickable="true"
-            android:id="@+id/button_create_key"
+            android:layout_gravity="center_horizontal"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:gravity="center"
+            android:text="Something went wrong! :(\nThis is a bug, please report it to us!"
             />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="?android:attr/listDivider" />
-    </LinearLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="?android:attr/listPreferredItemHeight"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="@string/select_identity_disable"
-        android:background="?android:selectableItemBackground"
-        android:drawableLeft="@drawable/ic_close_grey_24dp"
-        android:drawablePadding="16dp"
-        android:gravity="center_vertical"
-        android:clickable="true"
-        android:id="@+id/button_disable" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?android:attr/listDivider" />
+    </org.sufficientlysecure.keychain.ui.widget.ToolableViewAnimator>
 
 </LinearLayout>

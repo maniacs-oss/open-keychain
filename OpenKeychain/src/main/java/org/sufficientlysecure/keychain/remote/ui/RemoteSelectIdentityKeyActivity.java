@@ -18,7 +18,6 @@
 package org.sufficientlysecure.keychain.remote.ui;
 
 
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -31,20 +30,21 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.ViewAnimator;
 
-import org.openintents.openpgp.util.OpenPgpApi;
-import org.openintents.openpgp.util.OpenPgpUtils;
+import org.sufficientlysecure.keychain.AutoCryptConstants;
+import org.sufficientlysecure.keychain.BuildConfig;
 import org.sufficientlysecure.keychain.Constants;
 import org.sufficientlysecure.keychain.R;
-import org.sufficientlysecure.keychain.operations.results.OperationResult;
-import org.sufficientlysecure.keychain.pgp.KeyRing;
+import org.sufficientlysecure.keychain.operations.results.EditKeyResult;
 import org.sufficientlysecure.keychain.provider.ApiDataAccessObject;
 import org.sufficientlysecure.keychain.provider.ApiIdentityDataAccessObject;
 import org.sufficientlysecure.keychain.remote.ApiPermissionHelper;
 import org.sufficientlysecure.keychain.remote.ApiPermissionHelper.WrongPackageCertificateException;
 import org.sufficientlysecure.keychain.remote.ui.SelectIdentityKeyListFragment.SelectIdentityKeyFragmentListener;
-import org.sufficientlysecure.keychain.ui.CreateKeyActivity;
+import org.sufficientlysecure.keychain.service.SaveKeyringParcel;
 import org.sufficientlysecure.keychain.ui.base.BaseActivity;
+import org.sufficientlysecure.keychain.ui.base.CryptoOperationHelper;
 import org.sufficientlysecure.keychain.util.Log;
 
 
@@ -53,13 +53,21 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
     public static final String EXTRA_API_IDENTITY = "api_identity";
     public static final String EXTRA_CURRENT_MASTER_KEY_ID = "current_master_key_id";
 
-    protected static final int REQUEST_CODE_CREATE_KEY = 0x00008884;
     public static final String STATE_LIST_ALL_KEYS = "list_all_keys";
+    public static final String STATE_KEY_CREATION_STARTED = "key_creation_started";
+
+
+    private View layoutCreateKey;
+    private View layoutKeyList;
+    private ViewAnimator viewAnimator;
+
     private String packageName;
     private String apiIdentity;
     private boolean listAllKeys;
-    private View layoutCreateKey;
-    private View layoutKeyList;
+    private boolean keyCreationStarted;
+
+    private Long createdMasterKeyId;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +81,7 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
 
         if (savedInstanceState != null) {
             listAllKeys = savedInstanceState.getBoolean(STATE_LIST_ALL_KEYS);
+            keyCreationStarted = savedInstanceState.getBoolean(STATE_KEY_CREATION_STARTED);
         }
 
         // Inflate a "Done" custom action bar
@@ -122,6 +131,15 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
             }
         });
 
+        findViewById(R.id.key_creation_done).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                onClickDoneAfterKeyCreation();
+            }
+        });
+
+        viewAnimator = (ViewAnimator) findViewById(R.id.status_animator);
+
         layoutKeyList = findViewById(R.id.select_key_fragment);
         SelectIdentityKeyListFragment frag =
                 (SelectIdentityKeyListFragment) getSupportFragmentManager().findFragmentById(R.id.select_key_fragment);
@@ -141,6 +159,7 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putBoolean(STATE_LIST_ALL_KEYS, listAllKeys);
+        outState.putBoolean(STATE_KEY_CREATION_STARTED, keyCreationStarted);
     }
 
     @Override
@@ -187,40 +206,75 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
         setContentView(R.layout.api_select_identity_key);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // if a result has been returned, display a notify
-        if (data != null && data.hasExtra(OperationResult.EXTRA_RESULT)) {
-            OperationResult result = data.getParcelableExtra(OperationResult.EXTRA_RESULT);
-            result.createNotify(this).show();
+    public void onCreateKey() {
+        if (keyCreationStarted) {
+            // this should never happen, but if it does it's probably a UI error. just reset to avoid a stuck ui
+            setViewAnimatorStatus(Status.LIST);
+            return;
         }
+        keyCreationStarted = true;
 
-        switch (requestCode) {
-            case REQUEST_CODE_CREATE_KEY: {
-                if (resultCode == Activity.RESULT_OK) {
-                    if (data != null && data.hasExtra(OperationResult.EXTRA_RESULT)) {
-                        // TODO: select?
-//                        EditKeyResult result = data.getParcelableExtra(OperationResult.EXTRA_RESULT);
-//                        mSelectKeySpinner.setSelectedKeyId(result.mMasterKeyId);
-                    } else {
-                        Log.e(Constants.TAG, "missing result!");
-                    }
-                }
-                break;
+        CryptoOperationHelper.Callback<SaveKeyringParcel, EditKeyResult> createKeyCallback =
+                new CryptoOperationHelper.Callback<SaveKeyringParcel, EditKeyResult>() {
+            SaveKeyringParcel saveKeyringParcel = AutoCryptConstants.getKeyringParametersForUserId(apiIdentity);
+
+            @Override
+            public SaveKeyringParcel createOperationInput() {
+                return saveKeyringParcel;
             }
-            default: {
-                super.onActivityResult(requestCode, resultCode, data);
+
+            @Override
+            public void onCryptoOperationSuccess(EditKeyResult result) {
+                setViewAnimatorStatus(Status.CREATE_DONE);
+                createdMasterKeyId = result.mMasterKeyId;
             }
+
+            @Override
+            public void onCryptoOperationCancelled() {
+            }
+
+            @Override
+            public void onCryptoOperationError(EditKeyResult result) {
+                result.createNotify(RemoteSelectIdentityKeyActivity.this);
+            }
+
+            @Override
+            public boolean onCryptoSetProgress(String msg, int progress, int max) {
+                return true;
+            }
+        };
+
+        CryptoOperationHelper<SaveKeyringParcel, EditKeyResult> createOpHelper =
+                new CryptoOperationHelper<>(1, this, createKeyCallback, null);
+        createOpHelper.cryptoOperation();
+
+        setViewAnimatorStatus(Status.CREATE_IN_PROGRESS);
+    }
+
+    public void setViewAnimatorStatus(Status status) {
+        viewAnimator.setDisplayedChild(status.displayedChild);
+    }
+
+    private enum Status {
+        LIST(0),
+        CREATE_IN_PROGRESS(1),
+        CREATE_DONE(2),
+        ERROR(3),
+        ;
+
+        final int displayedChild;
+
+        Status(int displayedChild) {
+            this.displayedChild = displayedChild;
         }
     }
 
-    public void onCreateKey() {
-        OpenPgpUtils.UserId userIdSplit = KeyRing.splitUserId(apiIdentity);
+    private void onClickDoneAfterKeyCreation() {
+        if (createdMasterKeyId == null) {
+            throw new IllegalStateException("This button shouldn't be clickable while no key was created!");
+        }
 
-        Intent intent = new Intent(this, CreateKeyActivity.class);
-        intent.putExtra(CreateKeyActivity.EXTRA_NAME, userIdSplit.name);
-        intent.putExtra(CreateKeyActivity.EXTRA_EMAIL, userIdSplit.email);
-        startActivityForResult(intent, SelectSignKeyIdActivity.REQUEST_CODE_CREATE_KEY);
+        onKeySelected(createdMasterKeyId);
     }
 
     @Override
@@ -235,6 +289,7 @@ public class RemoteSelectIdentityKeyActivity extends BaseActivity implements Sel
     @Override
     public void onChangeListEmptyStatus(boolean isEmpty) {
         layoutKeyList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-        layoutCreateKey.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        boolean showCreateButton = isEmpty || BuildConfig.DEBUG;
+        layoutCreateKey.setVisibility(showCreateButton ? View.VISIBLE : View.GONE);
     }
 }
