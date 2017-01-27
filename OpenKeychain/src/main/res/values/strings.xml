@@ -1807,4 +1807,10 @@
     <string name="requested_key_label">Requested key:</string>
     <string name="error_preselect_sign_key">Error selecting key %s for signing!</string>
     <string name="error_preselect_encrypt_key">Error selecting key %s for encryption!</string>
+
+    <string name="use_key">Use key: %s</string>
+    <string name="use_key_no_name">Use key: <![CDATA[<no name>]]></string>
+    <string name="select_identity_key_title">%s wants to end-to-end encrypt from:</string>
+    <string name="select_identity_disable">Disable crypto for this identity</string>
+    <string name="select_identity_create">Create a key for me</string>
 </resources>

@@ -33,7 +33,7 @@ import org.sufficientlysecure.keychain.remote.ui.RemoteImportKeysActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemotePassphraseDialogActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemoteRegisterActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemoteSecurityTokenOperationActivity;
-import org.sufficientlysecure.keychain.remote.ui.RemoteSelectIdentityActivityIdentityKey;
+import org.sufficientlysecure.keychain.remote.ui.RemoteSelectIdentityKeyActivity;
 import org.sufficientlysecure.keychain.remote.ui.RemoteSelectPubKeyActivity;
 import org.sufficientlysecure.keychain.remote.ui.RequestKeyPermissionActivity;
 import org.sufficientlysecure.keychain.remote.ui.SelectSignKeyIdActivity;
@@ -88,10 +88,10 @@ public class ApiPendingIntentFactory {
 
     PendingIntent createSelectIdentityKeyPendingIntent(
             Intent data, String packageName, String apiIdentity, Long currentMasterKeyId) {
-        Intent intent = new Intent(mContext, RemoteSelectIdentityActivityIdentityKey.class);
-        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_PACKAGE_NAME, packageName);
-        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_API_IDENTITY, apiIdentity);
-        intent.putExtra(RemoteSelectIdentityActivityIdentityKey.EXTRA_CURRENT_MASTER_KEY_ID, currentMasterKeyId);
+        Intent intent = new Intent(mContext, RemoteSelectIdentityKeyActivity.class);
+        intent.putExtra(RemoteSelectIdentityKeyActivity.EXTRA_PACKAGE_NAME, packageName);
+        intent.putExtra(RemoteSelectIdentityKeyActivity.EXTRA_API_IDENTITY, apiIdentity);
+        intent.putExtra(RemoteSelectIdentityKeyActivity.EXTRA_CURRENT_MASTER_KEY_ID, currentMasterKeyId);
 
         return createInternal(data, intent);
     }

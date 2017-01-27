@@ -1120,10 +1120,6 @@ public class KeychainProvider extends ContentProvider {
                 }
                 case API_IDENTITIES_BY_PACKAGE_NAME_AND_IDENTITY: {
                     Long masterKeyId = values.getAsLong(ApiIdentity.MASTER_KEY_ID);
-                    if (masterKeyId == null) {
-                        throw new IllegalArgumentException("master_key_id must be a non-null value!");
-                    }
-
                     ContentValues actualValues = new ContentValues();
                     String packageName = uri.getPathSegments().get(2);
                     actualValues.put(ApiIdentity.PACKAGE_NAME, packageName);

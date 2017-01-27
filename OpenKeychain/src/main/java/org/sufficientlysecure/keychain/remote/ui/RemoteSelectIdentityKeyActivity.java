@@ -20,10 +20,19 @@ package org.sufficientlysecure.keychain.remote.ui;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import org.openintents.openpgp.util.OpenPgpApi;
 import org.openintents.openpgp.util.OpenPgpUtils;
 import org.sufficientlysecure.keychain.Constants;
 import org.sufficientlysecure.keychain.R;
@@ -39,14 +48,18 @@ import org.sufficientlysecure.keychain.ui.base.BaseActivity;
 import org.sufficientlysecure.keychain.util.Log;
 
 
-public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implements SelectIdentityKeyFragmentListener {
+public class RemoteSelectIdentityKeyActivity extends BaseActivity implements SelectIdentityKeyFragmentListener {
     public static final String EXTRA_PACKAGE_NAME = "package_name";
     public static final String EXTRA_API_IDENTITY = "api_identity";
     public static final String EXTRA_CURRENT_MASTER_KEY_ID = "current_master_key_id";
 
     protected static final int REQUEST_CODE_CREATE_KEY = 0x00008884;
+    public static final String STATE_LIST_ALL_KEYS = "list_all_keys";
     private String packageName;
     private String apiIdentity;
+    private boolean listAllKeys;
+    private View layoutCreateKey;
+    private View layoutKeyList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,7 +69,11 @@ public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implem
         packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME);
         apiIdentity = intent.getStringExtra(EXTRA_API_IDENTITY);
 
-        checkPackageAllowed();
+        checkPackageAllowed(packageName);
+
+        if (savedInstanceState != null) {
+            listAllKeys = savedInstanceState.getBoolean(STATE_LIST_ALL_KEYS);
+        }
 
         // Inflate a "Done" custom action bar
         setFullScreenDialogClose(
@@ -68,21 +85,90 @@ public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implem
                     }
                 });
 
-        TextView noneButton = (TextView) findViewById(R.id.api_select_sign_key_none);
-        noneButton.setOnClickListener(new View.OnClickListener() {
+        ImageView iconClientApp = (ImageView) findViewById(R.id.icon_client_app);
+        Drawable appIcon;
+        CharSequence appName;
+        try {
+            PackageManager packageManager = getPackageManager();
+            ApplicationInfo applicationInfo = packageManager.getApplicationInfo(packageName, 0);
+            appIcon = packageManager.getApplicationIcon(applicationInfo);
+            appName = packageManager.getApplicationLabel(applicationInfo);
+        } catch (NameNotFoundException e) {
+            Log.e(Constants.TAG, "Unable to find info of calling app!");
+            finish();
+            return;
+        }
+        iconClientApp.setImageDrawable(appIcon);
+
+        TextView titleText = (TextView) findViewById(R.id.select_identity_key_title);
+        titleText.setText(getString(R.string.select_identity_key_title, appName));
+
+        TextView textApiIdentity = (TextView) findViewById(R.id.text_api_identity);
+        textApiIdentity.setText(apiIdentity);
+
+        layoutCreateKey = findViewById(R.id.layout_create_key);
+        layoutCreateKey.setVisibility(View.GONE);
+        findViewById(R.id.button_create_key).setOnClickListener(new OnClickListener() {
             @Override
-            public void onClick(View v) {
-                onKeySelected(null);
-                setResult(Activity.RESULT_OK);
-                finish();
+            public void onClick(View view) {
+                onCreateKey();
             }
         });
 
+        findViewById(R.id.button_disable).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                onKeySelected(null);
+            }
+        });
 
-        startListFragments(savedInstanceState, apiIdentity, apiIdentity);
+        layoutKeyList = findViewById(R.id.select_key_fragment);
+        SelectIdentityKeyListFragment frag =
+                (SelectIdentityKeyListFragment) getSupportFragmentManager().findFragmentById(R.id.select_key_fragment);
+        frag.setApiIdentity(apiIdentity);
+        frag.setListAllKeys(listAllKeys);
     }
 
-    private void checkPackageAllowed() {
+    public void setListAllKeys(boolean listAllKeys) {
+        this.listAllKeys = listAllKeys;
+
+        SelectIdentityKeyListFragment frag =
+                (SelectIdentityKeyListFragment) getSupportFragmentManager().findFragmentById(R.id.select_key_fragment);
+        frag.setListAllKeys(listAllKeys);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_LIST_ALL_KEYS, listAllKeys);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.select_identity_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        menu.findItem(R.id.list_all_keys).setChecked(listAllKeys);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.list_all_keys:
+                boolean newState = !item.isChecked();
+                item.setChecked(newState);
+                setListAllKeys(newState);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void checkPackageAllowed(String packageName) {
         ApiDataAccessObject apiDao = new ApiDataAccessObject(this);
         ApiPermissionHelper apiPermissionHelper = new ApiPermissionHelper(this, apiDao);
         boolean packageAllowed;
@@ -94,26 +180,6 @@ public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implem
         if (!packageAllowed) {
             throw new IllegalStateException("Pending intent launched by unknown app!");
         }
-    }
-
-    private void startListFragments(Bundle savedInstanceState, String apiIdentity, String preferredUserId) {
-        // However, if we're being restored from a previous state,
-        // then we don't need to do anything and should return or else
-        // we could end up with overlapping fragments.
-        if (savedInstanceState != null) {
-            return;
-        }
-
-        // Create an instance of the fragments
-        SelectIdentityKeyListFragment listFragment = SelectIdentityKeyListFragment
-                .newInstance(apiIdentity, preferredUserId);
-        // Add the fragment to the 'fragment_container' FrameLayout
-        // NOTE: We use commitAllowingStateLoss() to prevent weird crashes!
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.api_select_sign_key_list_fragment, listFragment)
-                .commitAllowingStateLoss();
-        // do it immediately!
-        getSupportFragmentManager().executePendingTransactions();
     }
 
     @Override
@@ -148,7 +214,6 @@ public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implem
         }
     }
 
-    @Override
     public void onCreateKey() {
         OpenPgpUtils.UserId userIdSplit = KeyRing.splitUserId(apiIdentity);
 
@@ -164,7 +229,12 @@ public class RemoteSelectIdentityActivityIdentityKey extends BaseActivity implem
 
         apiIdentityDao.setMasterKeyIdForApiIdentity(apiIdentity, masterKeyId);
 
-        setResult(Activity.RESULT_OK);
         finish();
+    }
+
+    @Override
+    public void onChangeListEmptyStatus(boolean isEmpty) {
+        layoutKeyList.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+        layoutCreateKey.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
 }

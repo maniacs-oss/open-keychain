@@ -76,6 +76,7 @@ import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
 import org.sufficientlysecure.keychain.provider.TrustIdentityDataAccessObject;
 import org.sufficientlysecure.keychain.remote.OpenPgpServiceKeyIdExtractor.KeyIdResult;
 import org.sufficientlysecure.keychain.service.BackupKeyringParcel;
+import org.sufficientlysecure.keychain.service.PassphraseCacheService.KeyNotFoundException;
 import org.sufficientlysecure.keychain.service.input.CryptoInputParcel;
 import org.sufficientlysecure.keychain.service.input.RequiredInputParcel;
 import org.sufficientlysecure.keychain.util.InputData;
@@ -717,7 +718,15 @@ public class OpenPgpService extends Service {
         String currentPkg = mApiPermissionHelper.getCurrentCallingPackage();
         ApiIdentityDataAccessObject apiDao = new ApiIdentityDataAccessObject(this, currentPkg);
 
-        Long identityMasterKeyId = apiDao.getMasterKeyIdForIdentity(apiIdentity);
+        boolean hasKey;
+        Long identityMasterKeyId = null;
+        try {
+            identityMasterKeyId = apiDao.getMasterKeyIdForIdentity(apiIdentity);
+            hasKey = true;
+        } catch (KeyNotFoundException e) {
+            identityMasterKeyId = null;
+            hasKey = false;
+        }
 
         // TODO check for problems: missing or stripped signing key, etc.
         /*
@@ -744,8 +753,13 @@ public class OpenPgpService extends Service {
             Intent result = new Intent();
             result.putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR);
             result.putExtra(OpenPgpApi.RESULT_INTENT, chooseKeyPendingIntent);
-            result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.KEY_NOT_CONFIGURED,
-                    "No key configured."));
+            if (hasKey) {
+                result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.IDENTITY_DISABLED,
+                        "Identity disabled."));
+            } else {
+                result.putExtra(OpenPgpApi.RESULT_ERROR, new OpenPgpError(OpenPgpError.IDENTITY_KEY_NOT_CONFIGURED,
+                        "No key configured."));
+            }
             return result;
         }
 

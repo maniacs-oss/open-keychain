@@ -868,7 +868,7 @@
             android:exported="false"
             android:label="@string/app_name" />
         <activity
-            android:name=".remote.ui.RemoteSelectIdentityActivityIdentityKey"
+            android:name=".remote.ui.RemoteSelectIdentityKeyActivity"
             android:exported="false"
             android:label="@string/app_name" />
         <activity

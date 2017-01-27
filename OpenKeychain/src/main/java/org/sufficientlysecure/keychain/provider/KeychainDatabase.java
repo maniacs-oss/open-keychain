@@ -355,7 +355,7 @@ public class KeychainDatabase extends SQLiteOpenHelper {
                         "CREATE TABLE IF NOT EXISTS " + Tables.API_IDENTITIES + " ("
                                 + ApiIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
                                 + ApiIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
-                                + ApiIdentityColumns.MASTER_KEY_ID + " INTEGER NOT NULL, "
+                                + ApiIdentityColumns.MASTER_KEY_ID + " INTEGER NULL, "
                                 + "PRIMARY KEY(" + ApiIdentityColumns.PACKAGE_NAME + ", "
                                 + ApiIdentityColumns.IDENTIFIER + "), "
                                 + "FOREIGN KEY(" + ApiIdentityColumns.MASTER_KEY_ID + ") REFERENCES "

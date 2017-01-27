@@ -28,6 +28,7 @@ import android.database.Cursor;
 import android.net.Uri;
 
 import org.sufficientlysecure.keychain.provider.KeychainContract.ApiIdentity;
+import org.sufficientlysecure.keychain.service.PassphraseCacheService.KeyNotFoundException;
 
 
 public class ApiIdentityDataAccessObject {
@@ -68,13 +69,16 @@ public class ApiIdentityDataAccessObject {
         this.packageName = packageName;
     }
 
-    public Long getMasterKeyIdForIdentity(String apiIdentity) {
+    public Long getMasterKeyIdForIdentity(String apiIdentity) throws KeyNotFoundException {
         Cursor cursor = mQueryInterface.query(
                 ApiIdentity.buildByPackageNameAndApiIdentity(packageName, apiIdentity), null, null, null, null);
 
         try {
             if (cursor != null && cursor.moveToFirst()) {
                 int masterKeyIdColumn = cursor.getColumnIndex(ApiIdentity.MASTER_KEY_ID);
+                if (cursor.isNull(masterKeyIdColumn)) {
+                    return null;
+                }
                 return cursor.getLong(masterKeyIdColumn);
             }
         } finally {
@@ -83,17 +87,13 @@ public class ApiIdentityDataAccessObject {
             }
         }
 
-        return null;
+        throw new KeyNotFoundException();
     }
 
     public void setMasterKeyIdForApiIdentity(String apiIdentity, Long masterKeyId) {
-        if (masterKeyId == null) {
-            mQueryInterface.delete(ApiIdentity.buildByPackageNameAndApiIdentity(packageName, apiIdentity), null, null);
-        } else {
-            ContentValues cv = new ContentValues();
-            cv.put(ApiIdentity.MASTER_KEY_ID, masterKeyId);
-            mQueryInterface
-                    .update(ApiIdentity.buildByPackageNameAndApiIdentity(packageName, apiIdentity), cv, null, null);
-        }
+        ContentValues cv = new ContentValues();
+        cv.put(ApiIdentity.MASTER_KEY_ID, masterKeyId);
+        mQueryInterface
+                .update(ApiIdentity.buildByPackageNameAndApiIdentity(packageName, apiIdentity), cv, null, null);
     }
 }

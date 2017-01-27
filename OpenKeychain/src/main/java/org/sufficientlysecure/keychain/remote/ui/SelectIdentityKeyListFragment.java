@@ -19,7 +19,6 @@ package org.sufficientlysecure.keychain.remote.ui;
 
 
 import android.app.Activity;
-import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -28,66 +27,42 @@ import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.support.v7.widget.LinearLayoutManager;
 
-import org.openintents.openpgp.util.OpenPgpUtils;
-import org.sufficientlysecure.keychain.R;
-import org.sufficientlysecure.keychain.pgp.KeyRing;
-import org.sufficientlysecure.keychain.provider.ApiDataAccessObject;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
-import org.sufficientlysecure.keychain.remote.ApiPermissionHelper;
-import org.sufficientlysecure.keychain.remote.ui.adapter.SelectSignKeyAdapter;
-import org.sufficientlysecure.keychain.ui.CreateKeyActivity;
+import org.sufficientlysecure.keychain.remote.ui.adapter.SelectIdentityKeyAdapter;
 import org.sufficientlysecure.keychain.ui.base.RecyclerFragment;
 import org.sufficientlysecure.keychain.ui.util.adapter.CursorAdapter;
+import org.sufficientlysecure.keychain.ui.util.recyclerview.DividerItemDecoration;
 
 
-public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectSignKeyAdapter>
-        implements SelectSignKeyAdapter.SelectSignKeyListener, LoaderManager.LoaderCallbacks<Cursor> {
-
-    private static final String ARG_API_IDENTITY = "pref_uid";
-    private static final String ARG_PREF_UID = "pref_uid";
-
+public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectIdentityKeyAdapter>
+        implements SelectIdentityKeyAdapter.SelectSignKeyListener, LoaderManager.LoaderCallbacks<Cursor> {
+    private static final String ARG_API_IDENTITY = "api_identity";
     private String apiIdentity;
-    private String prefUid;
-
-    /**
-     * Creates new instance of this fragment
-     */
-    public static SelectIdentityKeyListFragment newInstance(String apiIdentity, String preferredUserId) {
-        SelectIdentityKeyListFragment frag = new SelectIdentityKeyListFragment();
-        Bundle args = new Bundle();
-
-        args.putString(ARG_API_IDENTITY, apiIdentity);
-        args.putString(ARG_PREF_UID, preferredUserId);
-
-        frag.setArguments(args);
-
-        return frag;
-    }
+    private boolean listAllKeys;
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.getString(ARG_API_IDENTITY, apiIdentity);
     }
 
-    /**
-     * Define Adapter and Loader on create of Activity
-     */
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
 
-        apiIdentity = getArguments().getString(ARG_API_IDENTITY);
-        prefUid = getArguments().getString(ARG_PREF_UID);
+        if (savedInstanceState != null && apiIdentity == null) {
+            apiIdentity = getArguments().getString(ARG_API_IDENTITY);
+        }
 
-        // Give some text to display if there is no data. In a real
-        // application this would come from a resource.
-        setEmptyText(getString(R.string.list_empty));
-
-        SelectSignKeyAdapter adapter = new SelectSignKeyAdapter(getContext(), null);
+        SelectIdentityKeyAdapter adapter = new SelectIdentityKeyAdapter(getContext(), null);
         adapter.setListener(this);
 
         setAdapter(adapter);
-        setLayoutManager(new LinearLayoutManager(getContext()));
+        LinearLayoutManager layoutManager = new LinearLayoutManager(getContext());
+        DividerItemDecoration dividerItemDecoration =
+                new DividerItemDecoration(getContext(), layoutManager.getOrientation());
+        setLayoutManager(layoutManager);
+        getRecyclerView().addItemDecoration(dividerItemDecoration);
 
         // Start out with a progress indicator.
         hideList(false);
@@ -115,12 +90,19 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectSignKe
                 KeyRings.CREATION,
         };
 
+        String[] selectionArgs;
         String selection = KeyRings.HAS_ANY_SECRET + " != 0";
+        if (!listAllKeys) {
+            selection += " AND " + KeyRings.EMAIL + " LIKE ?";
+            selectionArgs = new String[] { apiIdentity };
+        } else {
+            selectionArgs = null;
+        }
 
         String orderBy = KeyRings.USER_ID + " ASC";
         // Now create and return a CursorLoader that will take care of
         // creating a Cursor for the data being displayed.
-        return new CursorLoader(getActivity(), baseUri, projection, selection, null, orderBy);
+        return new CursorLoader(getActivity(), baseUri, projection, selection, selectionArgs, orderBy);
     }
 
     @Override
@@ -136,6 +118,8 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectSignKe
             showList(false);
         }
 
+        boolean isEmpty = data.getCount() == 0;
+        getKeySelectFragmentListener().onChangeListEmptyStatus(isEmpty);
     }
 
     @Override
@@ -150,11 +134,6 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectSignKe
     public void onDestroy() {
         getAdapter().setListener(null);
         super.onDestroy();
-    }
-
-    @Override
-    public void onCreateKeyDummyClicked() {
-        getKeySelectFragmentListener().onCreateKey();
     }
 
     @Override
@@ -175,9 +154,18 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectSignKe
         return (SelectIdentityKeyFragmentListener) activity;
     }
 
+    public void setApiIdentity(String apiIdentity) {
+        this.apiIdentity = apiIdentity;
+    }
+
+    public void setListAllKeys(boolean listAllKeys) {
+        this.listAllKeys = listAllKeys;
+        getLoaderManager().restartLoader(0, null, this);
+    }
+
     public interface SelectIdentityKeyFragmentListener {
-        void onCreateKey();
         void onKeySelected(Long masterKeyId);
+        void onChangeListEmptyStatus(boolean isEmpty);
     }
 
 }
