@@ -38,7 +38,6 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
     private byte[] mDetachedSignature;
     private String mRequiredSignerFingerprint;
     private String mSenderAddress;
-    private String mTrustId;
 
     public PgpDecryptVerifyInputParcel() {
     }
@@ -63,7 +62,6 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
         mDecryptMetadataOnly = source.readInt() != 0;
         mDetachedSignature = source.createByteArray();
         mRequiredSignerFingerprint = source.readString();
-        mTrustId = source.readString();
     }
 
     @Override
@@ -82,7 +80,6 @@ public class PgpDecryptVerifyInputParcel implements Parcelable {
         dest.writeInt(mDecryptMetadataOnly ? 1 : 0);
         dest.writeByteArray(mDetachedSignature);
         dest.writeString(mRequiredSignerFingerprint);
-        dest.writeString(mTrustId);
     }
 
     byte[] getInputBytes() {
