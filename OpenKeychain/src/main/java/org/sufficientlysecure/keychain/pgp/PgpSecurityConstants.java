@@ -127,6 +127,9 @@ public class PgpSecurityConstants {
             case PublicKeyAlgorithmTags.ECDSA: {
                 return PgpSecurityConstants.sCurveWhitelist.contains(key.getCurveOid());
             }
+            case PublicKeyAlgorithmTags.EDDSA: {
+                return true;
+            }
             // ELGAMAL_GENERAL: deprecated in RFC 4880, use ELGAMAL_ENCRYPT
             // DIFFIE_HELLMAN: unsure
             default:

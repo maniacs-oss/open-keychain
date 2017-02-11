@@ -345,7 +345,7 @@ public class SaveKeyringParcel implements Parcelable {
 
     // All supported algorithms
     public enum Algorithm {
-        RSA, DSA, ELGAMAL, ECDSA, ECDH
+        RSA, DSA, ELGAMAL, ECDSA, ECDH, EDDSA
     }
 
     // All curves defined in the standard

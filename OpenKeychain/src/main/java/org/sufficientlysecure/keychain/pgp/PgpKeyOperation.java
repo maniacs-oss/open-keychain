@@ -44,6 +44,8 @@ import org.bouncycastle.bcpg.S2K;
 import org.bouncycastle.bcpg.sig.Features;
 import org.bouncycastle.bcpg.sig.KeyFlags;
 import org.bouncycastle.bcpg.sig.RevocationReasonTags;
+import org.bouncycastle.jcajce.provider.asymmetric.eddsa.spec.EdDSAGenParameterSpec;
+import org.bouncycastle.jcajce.provider.asymmetric.eddsa.spec.EdDSANamedCurveTable;
 import org.bouncycastle.jce.spec.ElGamalParameterSpec;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPKeyFlags;
@@ -171,7 +173,7 @@ public class PgpKeyOperation {
                     log.add(LogType.MSG_CR_ERROR_NO_CURVE, indent);
                     return null;
                 }
-            } else {
+            } else if (add.mAlgorithm != Algorithm.EDDSA) {
                 if (add.mKeySize == null) {
                     log.add(LogType.MSG_CR_ERROR_NO_KEYSIZE, indent);
                     return null;
@@ -235,6 +237,21 @@ public class PgpKeyOperation {
                     keyGen.initialize(ecParamSpec, new SecureRandom());
 
                     algorithm = PGPPublicKey.ECDSA;
+                    break;
+                }
+
+                case EDDSA: {
+                    if ((add.mFlags & (PGPKeyFlags.CAN_ENCRYPT_COMMS | PGPKeyFlags.CAN_ENCRYPT_STORAGE)) > 0) {
+                        log.add(LogType.MSG_CR_ERROR_FLAGS_ECDSA, indent);
+                        return null;
+                    }
+                    progress(R.string.progress_generating_eddsa, 30);
+                    EdDSAGenParameterSpec edParamSpec =
+                            new EdDSAGenParameterSpec(EdDSANamedCurveTable.CURVE_ED25519_SHA512);
+                    keyGen = KeyPairGenerator.getInstance("EdDSA", Constants.BOUNCY_CASTLE_PROVIDER_NAME);
+                    keyGen.initialize(edParamSpec, new SecureRandom());
+
+                    algorithm = PGPPublicKey.EDDSA;
                     break;
                 }
 
