@@ -81,11 +81,12 @@ public class SelectIdentityKeyAdapter extends KeyCursorAdapter<CursorAdapter.Key
             Context context = itemView.getContext();
 
             { // set name and stuff, common to both key types
-                OpenPgpUtils.UserId userIdSplit = cursor.getUserId();
-                if (userIdSplit.name != null) {
-                    userIdText.setText(context.getString(R.string.use_key, userIdSplit.name));
+                String name = cursor.getName();
+                if (name != null) {
+                    userIdText.setText(context.getString(R.string.use_key, name));
                 } else {
-                    userIdText.setText(context.getString(R.string.use_key, userIdSplit.email));
+                    String email = cursor.getEmail();
+                    userIdText.setText(context.getString(R.string.use_key, email));
                 }
             }
 

@@ -27,10 +27,12 @@ import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.support.v7.widget.LinearLayoutManager;
 
+import org.sufficientlysecure.keychain.provider.KeychainContract;
 import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
 import org.sufficientlysecure.keychain.remote.ui.adapter.SelectIdentityKeyAdapter;
 import org.sufficientlysecure.keychain.ui.base.RecyclerFragment;
 import org.sufficientlysecure.keychain.ui.util.adapter.CursorAdapter;
+import org.sufficientlysecure.keychain.ui.util.adapter.CursorAdapter.KeyCursor;
 import org.sufficientlysecure.keychain.ui.util.recyclerview.DividerItemDecoration;
 
 
@@ -74,8 +76,6 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectIdenti
 
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        Uri baseUri = KeyRings.buildUnifiedKeyRingsUri();
-
         // These are the rows that we will retrieve.
         String[] projection = new String[]{
                 KeyRings._ID,
@@ -88,21 +88,19 @@ public class SelectIdentityKeyListFragment extends RecyclerFragment<SelectIdenti
                 KeyRings.HAS_ANY_SECRET,
                 KeyRings.HAS_DUPLICATE_USER_ID,
                 KeyRings.CREATION,
+                KeyRings.NAME,
+                KeyRings.EMAIL,
+                KeyRings.COMMENT,
         };
 
-        String[] selectionArgs;
         String selection = KeyRings.HAS_ANY_SECRET + " != 0";
-        if (!listAllKeys) {
-            selection += " AND " + KeyRings.EMAIL + " LIKE ?";
-            selectionArgs = new String[] { apiIdentity };
-        } else {
-            selectionArgs = null;
-        }
+        Uri baseUri = listAllKeys ? KeyRings.buildUnifiedKeyRingsUri() :
+                KeyRings.buildUnifiedKeyRingsFindByEmailUri(apiIdentity);
 
         String orderBy = KeyRings.USER_ID + " ASC";
         // Now create and return a CursorLoader that will take care of
         // creating a Cursor for the data being displayed.
-        return new CursorLoader(getActivity(), baseUri, projection, selection, selectionArgs, orderBy);
+        return new CursorLoader(getActivity(), baseUri, projection, selection, null, orderBy);
     }
 
     @Override
