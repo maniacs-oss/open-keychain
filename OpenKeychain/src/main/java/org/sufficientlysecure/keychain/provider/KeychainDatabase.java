@@ -159,6 +159,18 @@ public class KeychainDatabase extends SQLiteOpenHelper {
                     + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE"
                     + ")";
 
+    private static final String CREATE_API_IDENTITIES = "CREATE TABLE IF NOT EXISTS " + Tables.API_IDENTITIES + " ("
+            + ApiIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
+            + ApiIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
+            + ApiIdentityColumns.MASTER_KEY_ID + " INTEGER NULL, "
+            + "PRIMARY KEY(" + ApiIdentityColumns.PACKAGE_NAME + ", "
+            + ApiIdentityColumns.IDENTIFIER + "), "
+            + "FOREIGN KEY(" + ApiIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
+            + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
+            + "FOREIGN KEY(" + ApiIdentityColumns.PACKAGE_NAME + ") REFERENCES "
+            + Tables.API_APPS + "(" + ApiAppsColumns.PACKAGE_NAME + ") ON DELETE CASCADE"
+            + ")";
+
     private static final String CREATE_API_TRUST_IDENTITIES =
             "CREATE TABLE IF NOT EXISTS " + Tables.API_TRUST_IDENTITIES + " ("
                     + ApiTrustIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
@@ -226,6 +238,7 @@ public class KeychainDatabase extends SQLiteOpenHelper {
         db.execSQL(CREATE_API_APPS);
         db.execSQL(CREATE_API_APPS_ACCOUNTS);
         db.execSQL(CREATE_API_APPS_ALLOWED_KEYS);
+        db.execSQL(CREATE_API_IDENTITIES);
         db.execSQL(CREATE_API_TRUST_IDENTITIES);
 
         db.execSQL("CREATE INDEX keys_by_rank ON keys (" + KeysColumns.RANK + ");");
@@ -336,34 +349,9 @@ public class KeychainDatabase extends SQLiteOpenHelper {
                     return;
                 }
             case 20:
-                db.execSQL(
-                        "CREATE TABLE IF NOT EXISTS " + Tables.API_TRUST_IDENTITIES + " ("
-                                + ApiTrustIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
-                                + ApiTrustIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
-                                + ApiTrustIdentityColumns.LAST_UPDATED + " INTEGER NOT NULL, "
-                                + ApiTrustIdentityColumns.MASTER_KEY_ID + " INTEGER NOT NULL, "
-                                + "PRIMARY KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ", "
-                                    + ApiTrustIdentityColumns.IDENTIFIER + "), "
-                                + "FOREIGN KEY(" + ApiTrustIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
-                                    + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
-                                + "FOREIGN KEY(" + ApiTrustIdentityColumns.PACKAGE_NAME + ") REFERENCES "
-                                    + Tables.API_APPS + "(" + ApiAppsColumns.PACKAGE_NAME + ") ON DELETE CASCADE"
-                                + ")"
-                );
+                db.execSQL(CREATE_API_TRUST_IDENTITIES);
             case 21:
-                db.execSQL(
-                        "CREATE TABLE IF NOT EXISTS " + Tables.API_IDENTITIES + " ("
-                                + ApiIdentityColumns.PACKAGE_NAME + " TEXT NOT NULL, "
-                                + ApiIdentityColumns.IDENTIFIER + " TEXT NOT NULL, "
-                                + ApiIdentityColumns.MASTER_KEY_ID + " INTEGER NULL, "
-                                + "PRIMARY KEY(" + ApiIdentityColumns.PACKAGE_NAME + ", "
-                                + ApiIdentityColumns.IDENTIFIER + "), "
-                                + "FOREIGN KEY(" + ApiIdentityColumns.MASTER_KEY_ID + ") REFERENCES "
-                                + Tables.KEY_RINGS_PUBLIC + "(" + KeyRingsColumns.MASTER_KEY_ID + ") ON DELETE CASCADE, "
-                                + "FOREIGN KEY(" + ApiIdentityColumns.PACKAGE_NAME + ") REFERENCES "
-                                + Tables.API_APPS + "(" + ApiAppsColumns.PACKAGE_NAME + ") ON DELETE CASCADE"
-                                + ")"
-                );
+                db.execSQL(CREATE_API_IDENTITIES);
                 if (oldVersion == 20 || oldVersion == 21) {
                     return;
                 }
