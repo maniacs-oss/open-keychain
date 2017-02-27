@@ -174,18 +174,22 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                     throw new IllegalArgumentException("Please provide a projection!");
                 }
 
+                String callingPackageName = mApiPermissionHelper.getCurrentCallingPackage();
+
                 qb.setTables(
                         TEMP_TABLE_QUERIED_ADDRESSES
                                 + " LEFT JOIN " + Tables.USER_PACKETS + " ON ("
-                                + Tables.USER_PACKETS + "." + UserPackets.USER_ID + " IS NOT NULL"
-                                + " AND " + Tables.USER_PACKETS + "." + UserPackets.EMAIL + " LIKE " + TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES
+                                    + Tables.USER_PACKETS + "." + UserPackets.USER_ID + " IS NOT NULL"
+                                    + " AND " + Tables.USER_PACKETS + "." + UserPackets.EMAIL + " LIKE " + TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES
                                 + ")"
                                 + " LEFT JOIN " + Tables.API_TRUST_IDENTITIES + " ON ("
-                                + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " LIKE queried_addresses.address"
+                                    + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME + " = \"" + callingPackageName + "\""
+                                    + " AND " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " LIKE queried_addresses.address"
                                 + ")"
-                                + " LEFT JOIN " + Tables.CERTS + " ON ("
-                                + "(" + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
-                                + " AND " + Tables.USER_PACKETS + "." + UserPackets.RANK + " = " + Tables.CERTS + "." + Certs.RANK + ")"
+                                + " JOIN " + Tables.CERTS + " ON ("
+                                    + "(" + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
+                                    + " AND " + Tables.USER_PACKETS + "." + UserPackets.RANK + " = " + Tables.CERTS + "." + Certs.RANK + ")"
+                                    + " OR " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
                                 + ")"
                 );
                 // in case there are multiple verifying certificates
@@ -199,9 +203,6 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 // verified == 0 has no self-cert, which is basically an error case. never return that!
                 // verified == null is fine, because it means there was no join partner
                 qb.appendWhere(Tables.CERTS + "." + Certs.VERIFIED + " IS NULL OR " + Tables.CERTS + "." + Certs.VERIFIED + " > 0");
-
-                String callingPackageName = mApiPermissionHelper.getCurrentCallingPackage();
-                qb.appendWhere(" AND " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME + " = \"" + callingPackageName + "\"");
 
                 if (TextUtils.isEmpty(sortOrder)) {
                     sortOrder = EmailStatus.EMAIL_ADDRESS;
