@@ -114,4 +114,8 @@ public class TrustIdentityDataAccessObject {
         cv.put(ApiTrustIdentity.LAST_UPDATED, date.getTime());
         mQueryInterface.update(ApiTrustIdentity.buildByPackageNameAndTrustId(packageName, trustId), cv, null, null);
     }
+
+    public String getCallingPackageName() {
+        return packageName;
+    }
 }

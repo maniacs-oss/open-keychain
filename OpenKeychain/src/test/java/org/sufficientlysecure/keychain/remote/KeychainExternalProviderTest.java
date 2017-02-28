@@ -3,6 +3,7 @@ package org.sufficientlysecure.keychain.remote;
 
 import java.security.AccessControlException;
 import java.util.Collections;
+import java.util.Date;
 
 import android.content.ContentResolver;
 import android.content.pm.PackageInfo;
@@ -23,6 +24,7 @@ import org.sufficientlysecure.keychain.provider.ApiDataAccessObject;
 import org.sufficientlysecure.keychain.provider.KeyWritableRepository;
 import org.sufficientlysecure.keychain.provider.KeychainExternalContract.EmailStatus;
 import org.sufficientlysecure.keychain.provider.KeyRepositorySaveTest;
+import org.sufficientlysecure.keychain.provider.TrustIdentityDataAccessObject;
 import org.sufficientlysecure.keychain.service.CertifyActionsParcel;
 import org.sufficientlysecure.keychain.service.CertifyActionsParcel.CertifyAction;
 import org.sufficientlysecure.keychain.service.input.CryptoInputParcel;
@@ -43,6 +45,7 @@ public class KeychainExternalProviderTest {
     static final String USER_ID_SEC_1 = "twi <twi-sec@openkeychain.org>";
     static final long KEY_ID_SECRET = 0x5D4DA4423C39122FL;
     static final long KEY_ID_PUBLIC = 0x9A282CE2AB44A382L;
+    public static final String TRUST_ID = "trust@openkeychain.org";
 
 
     KeyWritableRepository databaseInteractor =
@@ -79,6 +82,15 @@ public class KeychainExternalProviderTest {
     }
 
     @Test(expected = AccessControlException.class)
+    public void testPermission__withExplicitPackage() throws Exception {
+        contentResolver.query(
+                EmailStatus.CONTENT_URI.buildUpon().appendPath("fake_pkg").build(),
+                new String[] { EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID },
+                null, new String [] { }, null
+        );
+    }
+
+    @Test(expected = AccessControlException.class)
     public void testPermission__withWrongPackageCert() throws Exception {
         apiDao.deleteApiApp(PACKAGE_NAME);
         apiDao.insertApiApp(new AppSettings(PACKAGE_NAME, new byte[] { 1, 2, 4 }));
@@ -94,7 +106,7 @@ public class KeychainExternalProviderTest {
     public void testQuery__withNonExistentAddress() throws Exception {
         Cursor cursor = contentResolver.query(
                 EmailStatus.CONTENT_URI, new String[] {
-                        EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_STATUS, EmailStatus.USER_ID },
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID },
                 null, new String [] { MAIL_ADDRESS_1 }, null
         );
 
@@ -111,7 +123,7 @@ public class KeychainExternalProviderTest {
 
         Cursor cursor = contentResolver.query(
                 EmailStatus.CONTENT_URI, new String[] {
-                        EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_STATUS, EmailStatus.USER_ID },
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID },
                 null, new String [] { MAIL_ADDRESS_1 }, null
         );
 
@@ -129,7 +141,7 @@ public class KeychainExternalProviderTest {
 
         Cursor cursor = contentResolver.query(
                 EmailStatus.CONTENT_URI, new String[] {
-                        EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_STATUS, EmailStatus.USER_ID },
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID },
                 null, new String [] { MAIL_ADDRESS_1, MAIL_ADDRESS_2 }, null
         );
 
@@ -151,7 +163,7 @@ public class KeychainExternalProviderTest {
 
         Cursor cursor = contentResolver.query(
                 EmailStatus.CONTENT_URI, new String[] {
-                        EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_STATUS, EmailStatus.USER_ID },
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID },
                 null, new String [] { MAIL_ADDRESS_SEC_1 }, null
         );
 
@@ -172,7 +184,7 @@ public class KeychainExternalProviderTest {
 
         Cursor cursor = contentResolver.query(
                 EmailStatus.CONTENT_URI, new String[] {
-                        EmailStatus.EMAIL_ADDRESS, EmailStatus.EMAIL_STATUS, EmailStatus.USER_ID },
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID },
                 null, new String [] { MAIL_ADDRESS_1 }, null
         );
 
@@ -181,6 +193,32 @@ public class KeychainExternalProviderTest {
         assertEquals(MAIL_ADDRESS_1, cursor.getString(0));
         assertEquals(USER_ID_1, cursor.getString(2));
         assertEquals(2, cursor.getInt(1));
+        assertFalse(cursor.moveToNext());
+    }
+
+    @Test
+    public void testQuery__withTrustId() throws Exception {
+        insertPublicKeyringFrom("/test-keys/testring.pub");
+
+        Date date = new Date();
+        TrustIdentityDataAccessObject trustIdentityDao =
+                new TrustIdentityDataAccessObject(RuntimeEnvironment.application, PACKAGE_NAME);
+        trustIdentityDao.setMasterKeyIdForTrustId(TRUST_ID, KEY_ID_PUBLIC, date);
+
+        Cursor cursor = contentResolver.query(
+                EmailStatus.CONTENT_URI, new String[] {
+                        EmailStatus.EMAIL_ADDRESS, EmailStatus.USER_ID_STATUS, EmailStatus.USER_ID,
+                        EmailStatus.TRUST_ID_LAST_UPDATE
+                },
+                null, new String [] { TRUST_ID }, null
+        );
+
+        assertNotNull(cursor);
+        assertTrue(cursor.moveToFirst());
+        assertEquals(TRUST_ID, cursor.getString(0));
+        assertTrue(cursor.isNull(2));
+        assertEquals(0, cursor.getInt(1));
+        assertEquals(date.getTime(), cursor.getLong(3));
         assertFalse(cursor.moveToNext());
     }
 

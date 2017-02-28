@@ -35,6 +35,7 @@ import android.os.Binder;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 
+import org.sufficientlysecure.keychain.BuildConfig;
 import org.sufficientlysecure.keychain.Constants;
 import org.sufficientlysecure.keychain.provider.ApiDataAccessObject;
 import org.sufficientlysecure.keychain.provider.KeychainContract;
@@ -52,6 +53,7 @@ import org.sufficientlysecure.keychain.util.Log;
 
 public class KeychainExternalProvider extends ContentProvider implements SimpleContentResolverInterface {
     private static final int EMAIL_STATUS = 101;
+    private static final int EMAIL_STATUS_INTERNAL = 102;
     private static final int TRUST_IDENTITY = 201;
     private static final int API_APPS = 301;
     private static final int API_APPS_BY_PACKAGE_NAME = 302;
@@ -83,6 +85,9 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
         matcher.addURI(authority, KeychainExternalContract.BASE_EMAIL_STATUS, EMAIL_STATUS);
 
         matcher.addURI(authority, KeychainExternalContract.BASE_TRUST_IDENTITIES + "/*", TRUST_IDENTITY);
+
+        matcher.addURI(authority, KeychainExternalContract.BASE_EMAIL_STATUS, EMAIL_STATUS);
+        matcher.addURI(authority, KeychainExternalContract.BASE_EMAIL_STATUS + "/*", EMAIL_STATUS_INTERNAL);
 
         // can only query status of calling app - for internal use only!
         matcher.addURI(KeychainContract.CONTENT_AUTHORITY, KeychainContract.BASE_API_APPS + "/*", API_APPS_BY_PACKAGE_NAME);
@@ -139,9 +144,19 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
 
         SQLiteDatabase db = getDb().getReadableDatabase();
 
+        String callingPackageName = mApiPermissionHelper.getCurrentCallingPackage();
+
         switch (match) {
+            case EMAIL_STATUS_INTERNAL:
+                if (!BuildConfig.APPLICATION_ID.equals(callingPackageName)) {
+                    throw new AccessControlException("This URI can only be called internally!");
+                }
+
+                // override package name to use any external
+                callingPackageName = uri.getLastPathSegment();
+
             case EMAIL_STATUS: {
-                boolean callerIsAllowed = mApiPermissionHelper.isAllowedIgnoreErrors();
+                boolean callerIsAllowed = (match == EMAIL_STATUS_INTERNAL) || mApiPermissionHelper.isAllowedIgnoreErrors();
                 if (!callerIsAllowed) {
                     throw new AccessControlException("An application must register before use of KeychainExternalProvider!");
                 }
@@ -157,15 +172,17 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 projectionMap.put(EmailStatus._ID, "email AS _id");
                 projectionMap.put(EmailStatus.EMAIL_ADDRESS, // this is actually the queried address
                         TEMP_TABLE_QUERIED_ADDRESSES + "." + TEMP_TABLE_COLUMN_ADDRES + " AS " + EmailStatus.EMAIL_ADDRESS);
+                projectionMap.put(EmailStatus.USER_ID,
+                        Tables.USER_PACKETS + "." + UserPackets.USER_ID + " AS " + EmailStatus.USER_ID);
                 // we take the minimum (>0) here, where "1" is "verified by known secret key", "2" is "self-certified"
-                projectionMap.put(EmailStatus.EMAIL_STATUS, "CASE ( MIN (" + Certs.VERIFIED + " ) ) "
+                projectionMap.put(EmailStatus.USER_ID_STATUS, "CASE ( MIN (" + Certs.VERIFIED + " ) ) "
                         // remap to keep this provider contract independent from our internal representation
                         + " WHEN " + Certs.VERIFIED_SELF + " THEN 1"
                         + " WHEN " + Certs.VERIFIED_SECRET + " THEN 2"
                         + " WHEN NULL THEN NULL"
-                        + " END AS " + EmailStatus.EMAIL_STATUS);
-                projectionMap.put(EmailStatus.USER_ID,
-                        Tables.USER_PACKETS + "." + UserPackets.USER_ID + " AS " + EmailStatus.USER_ID);
+                        + " END AS " + EmailStatus.USER_ID_STATUS);
+                projectionMap.put(EmailStatus.MASTER_KEY_ID,
+                        Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " AS " + EmailStatus.MASTER_KEY_ID);
                 projectionMap.put(EmailStatus.TRUST_ID_LAST_UPDATE, Tables.API_TRUST_IDENTITIES + "." +
                         ApiTrustIdentity.LAST_UPDATED + " AS " + EmailStatus.TRUST_ID_LAST_UPDATE);
                 qb.setProjectionMap(projectionMap);
@@ -173,8 +190,6 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                 if (projection == null) {
                     throw new IllegalArgumentException("Please provide a projection!");
                 }
-
-                String callingPackageName = mApiPermissionHelper.getCurrentCallingPackage();
 
                 qb.setTables(
                         TEMP_TABLE_QUERIED_ADDRESSES
@@ -186,10 +201,9 @@ public class KeychainExternalProvider extends ContentProvider implements SimpleC
                                     + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.PACKAGE_NAME + " = \"" + callingPackageName + "\""
                                     + " AND " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.IDENTIFIER + " LIKE queried_addresses.address"
                                 + ")"
-                                + " JOIN " + Tables.CERTS + " ON ("
-                                    + "(" + Tables.USER_PACKETS + "." + UserPackets.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
-                                    + " AND " + Tables.USER_PACKETS + "." + UserPackets.RANK + " = " + Tables.CERTS + "." + Certs.RANK + ")"
-                                    + " OR " + Tables.API_TRUST_IDENTITIES + "." + ApiTrustIdentity.MASTER_KEY_ID + " = " + Tables.CERTS + "." + Certs.MASTER_KEY_ID
+                                + " LEFT JOIN " + Tables.CERTS + " ON ("
+                                    + "(" + Tables.CERTS + "." + Certs.MASTER_KEY_ID + " = " + Tables.USER_PACKETS+ "." + UserPackets.MASTER_KEY_ID
+                                    + " AND " + Tables.CERTS + "." + Certs.RANK + " = " + Tables.USER_PACKETS + "." + UserPackets.RANK + ")"
                                 + ")"
                 );
                 // in case there are multiple verifying certificates

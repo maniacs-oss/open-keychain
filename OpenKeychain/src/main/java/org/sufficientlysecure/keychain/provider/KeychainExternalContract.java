@@ -37,9 +37,10 @@ public class KeychainExternalContract {
 
     public static class EmailStatus implements BaseColumns {
         public static final String EMAIL_ADDRESS = "email_address";
-        public static final String EMAIL_STATUS = "email_status";
         public static final String USER_ID = "user_id";
+        public static final String USER_ID_STATUS = "email_status";
         public static final String TRUST_ID_LAST_UPDATE = "trust_id_last_update";
+        public static final String MASTER_KEY_ID = "master_key_id";
 
         public static final Uri CONTENT_URI = BASE_CONTENT_URI_EXTERNAL.buildUpon()
                 .appendPath(BASE_EMAIL_STATUS).build();
